@@ -5,8 +5,9 @@ from docx import Document
 from io import BytesIO
 from dotenv import load_dotenv
 import os
+from pathlib import Path
 
-# ---- Simple login ----
+# ---- Login Section ----
 USERNAME = "admin"
 PASSWORD = "letmein123"
 
@@ -22,10 +23,9 @@ if not st.session_state["authenticated"]:
             st.session_state["authenticated"] = True
         else:
             st.error("Incorrect username or password.")
-        st.stop()
+    st.stop()
 
 if st.session_state["authenticated"]:
-
     # Load environment variables
     load_dotenv()
     CASEPEER_API_KEY = os.getenv("CASEPEER_API_KEY")
@@ -38,13 +38,20 @@ if st.session_state["authenticated"]:
         "Content-Type": "application/json"
     }
 
-    # Helper to fetch case data
     def get_case_data(case_id):
         url = f"https://api.casepeer.com/v1/cases/{case_id}"
         response = requests.get(url, headers=HEADERS)
         return response.json()
 
-    # Generate Factual Background
+    def get_all_cases():
+        url = "https://api.casepeer.com/v1/cases/"
+        response = requests.get(url, headers=HEADERS)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            st.error("Failed to fetch cases from CasePeer.")
+            return []
+
     def generate_factual_background(incident_date, location, injuries, treatment):
         prompt = (
             f"Draft the 'Factual Background' section of a Texas personal injury petition. "
@@ -58,7 +65,6 @@ if st.session_state["authenticated"]:
         )
         return response.choices[0].message.content.strip()
 
-    # Generate Venue Paragraph
     def generate_venue_paragraph(incident_county, defendant_county, plaintiff_county):
         prompt = (
             "You are drafting the 'Jurisdiction and Venue' section of a Texas personal injury petition. "
@@ -74,7 +80,6 @@ if st.session_state["authenticated"]:
         )
         return response.choices[0].message.content.strip()
 
-    # Replace placeholders in .docx
     def fill_template(template_path, context):
         doc = Document(template_path)
         for para in doc.paragraphs:
@@ -83,28 +88,47 @@ if st.session_state["authenticated"]:
                     para.text = para.text.replace(f"«{key}»", val)
         return doc
 
-    # Streamlit UI
     st.title("Texas Petition Generator from CasePeer")
-
-    # Petition type selector
     petition_type = st.selectbox("Select Petition Type", [
         "Motor Vehicle Accident – Single Defendant",
         "Motor Vehicle Accident – Multiple Defendants",
         "Premises Liability"
     ])
 
-    from pathlib import Path
+    use_name_search = st.checkbox("Search by client name instead of Case ID")
+    case = None
 
-    # Load default template from templates folder
-    template_path = Path(__file__).parent / "templates" / "petition_template.docx"
-    case_id = st.text_input("Enter CasePeer Case ID:")
+    if use_name_search:
+        client_name = st.text_input("Client Full Name (First Last):")
+        if client_name:
+            all_cases = get_all_cases()
+            matching_cases = [case for case in all_cases if f"{case['client']['first_name']} {case['client']['last_name']}".lower() == client_name.lower()]
 
-    if case_id:
+if matching_cases:
+    if len(matching_cases) == 1:
+        case = get_case_data(matching_cases[0]['id'])
+    else:
+        selection = st.selectbox(
+            "Multiple matches found. Select the correct case:",
+            [f"{c['client']['first_name']} {c['client']['last_name']} (Case ID: {c['id']})" for c in matching_cases]
+        )
+        selected_id = int(selection.split("Case ID: ")[1].replace(")", ""))
+        case = get_case_data(selected_id)
+else:
+    st.warning("No matching case found for that client name.")
 
-        st.success("Pulling data and generating petition...")
-        case = get_case_data(case_id)
+            if matching_case:
+                case = get_case_data(matching_case['id'])
+            else:
+                st.warning("No matching case found for that client name.")
+    else:
+        case_id = st.text_input("Enter CasePeer Case ID:")
+        if case_id:
+            case = get_case_data(case_id)
 
-        # Extract from CasePeer API
+    if case:
+        template_path = Path(__file__).parent / "templates" / "petition_template.docx"
+
         plaintiff = case.get("client", {})
         defendants = case.get("defendants", [])
 
@@ -113,7 +137,6 @@ if st.session_state["authenticated"]:
         plaintiff_address = f"{plaintiff.get('address_line_1', '')}, {plaintiff.get('city', '')}, {plaintiff.get('state', '')} {plaintiff.get('zip', '')}"
         plaintiff_county = plaintiff.get("county", "")
 
-        # Handle single or multiple defendants
         if petition_type == "Motor Vehicle Accident – Multiple Defendants" and len(defendants) > 1:
             defendant_names = [d.get("name", "Unknown Defendant") for d in defendants]
             combined_defendant_name = " and ".join(defendant_names)
@@ -135,11 +158,9 @@ if st.session_state["authenticated"]:
         injuries = case.get("injury_summary", "")
         treatment = case.get("treatment_summary", "")
 
-        # GPT-generated content
         factual_background = generate_factual_background(incident_date, incident_location, injuries, treatment)
         venue_paragraph = generate_venue_paragraph(incident_county=plaintiff_county, defendant_county=defendant_county, plaintiff_county=plaintiff_county)
 
-        # Context for template replacement
         context = {
             "PlaintiffName": plaintiff_name,
             "PlaintiffLastName": plaintiff_last_name,
@@ -154,10 +175,10 @@ if st.session_state["authenticated"]:
             "County": plaintiff_county
         }
 
-        # Fill template and offer download
-        doc = fill_template(template_file, context)
+        doc = fill_template(template_path, context)
         output = BytesIO()
         doc.save(output)
         output.seek(0)
 
         st.download_button("Download Filled Petition", output, file_name="Generated_Petition.docx")
+
