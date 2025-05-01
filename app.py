@@ -96,6 +96,7 @@ from pathlib import Path
 
 # Load default template from templates folder
 template_path = Path(__file__).parent / "templates" / "petition_template.docx"
+case_id = st.text_input("Enter CasePeer Case ID:")
 
 if case_id:
 
