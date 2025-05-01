@@ -93,9 +93,13 @@ petition_type = st.selectbox("Select Petition Type", [
 ])
 
 case_id = st.text_input("Enter CasePeer Case ID:")
-template_file = st.file_uploader("Upload your petition .docx template", type="docx")
+from pathlib import Path
 
-if case_id and template_file:
+# Load default template from templates folder
+template_path = Path(__file__).parent / "templates" / "petition_template.docx"
+
+if case_id:
+
     st.success("Pulling data and generating petition...")
     case = get_case_data(case_id)
 
