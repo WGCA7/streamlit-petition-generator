@@ -92,7 +92,6 @@ petition_type = st.selectbox("Select Petition Type", [
     "Premises Liability"
 ])
 
-case_id = st.text_input("Enter CasePeer Case ID:")
 from pathlib import Path
 
 # Load default template from templates folder
