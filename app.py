@@ -102,18 +102,23 @@ if st.session_state["authenticated"]:
         client_name = st.text_input("Client Full Name (First Last):")
         if client_name:
             all_cases = get_all_cases()
-            matching_cases = [case for case in all_cases if f"{case['client']['first_name']} {case['client']['last_name']}".lower() == client_name.lower()]
+            matching_cases = [
+    case for case in all_cases
+    if f"{case['client']['first_name']} {case['client']['last_name']}".lower() == client_name.lower()
+]
 
 if matching_cases:
     if len(matching_cases) == 1:
         case = get_case_data(matching_cases[0]['id'])
     else:
-        selection = st.selectbox(
-            "Multiple matches found. Select the correct case:",
-            [f"{c['client']['first_name']} {c['client']['last_name']} (Case ID: {c['id']})" for c in matching_cases]
-        )
+        options = [
+            f"{c['client']['first_name']} {c['client']['last_name']} – {c.get('incident_type', 'Unknown')} – {c.get('incident_date', 'No date')} (Case ID: {c['id']})"
+            for c in matching_cases
+        ]
+        selection = st.selectbox("Multiple matches found. Select the correct case:", options)
         selected_id = int(selection.split("Case ID: ")[1].replace(")", ""))
         case = get_case_data(selected_id)
+
 else:
     st.warning("No matching case found for that client name.")
 
