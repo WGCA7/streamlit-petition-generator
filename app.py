@@ -16,11 +16,14 @@ if "authenticated" not in st.session_state:
 if not st.session_state["authenticated"]:
     user = st.text_input("Username")
     pw = st.text_input("Password", type="password")
-    if user == USERNAME and pw == PASSWORD:
-        st.session_state["authenticated"] = True
-        st.experimental_rerun()
-    else:
+
+    if st.button("Login"):
+        if user == USERNAME and pw == PASSWORD:
+            st.session_state["authenticated"] = True
+        else:
+            st.error("Incorrect username or password.")
         st.stop()
+
 
 # Load environment variables
 load_dotenv()
