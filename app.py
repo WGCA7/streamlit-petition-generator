@@ -20,8 +20,7 @@ def fill_placeholders(doc, replacements):
     return doc
 
 def generate_gpt_section(prompt, context):
-    # Placeholder GPT logic
-    return f"[Generated: {prompt} -> {context}]"
+    return f"[Generated GPT Section for: {prompt}\n\n{context}]"
 
 def download_docx(doc, filename):
     buffer = BytesIO()
@@ -44,12 +43,15 @@ petition_doc_map = {
     "Medical Malpractice Original Petition": "medical_malpractice_original_petition"
 }
 
-discovery_doc_map = {
+requests_doc_map = {
     "Plaintiff's Initial Disclosures": "initial_disclosures",
     "Plaintiff's Interrogatories": "interrogatories",
     "Plaintiff's Request for Admissions": "request_for_admissions",
     "Plaintiff's Request for Production": "request_for_production",
-    "Plaintiff's Request for Disclosures": "request_for_disclosures",
+    "Plaintiff's Request for Disclosures": "request_for_disclosures"
+}
+
+answers_doc_map = {
     "Answer to Interrogatories": "answer_to_interrogatories",
     "Answer to Request for Admissions": "answer_to_request_for_admissions",
     "Answer to Request for Production": "answer_to_request_for_production",
@@ -74,80 +76,89 @@ medical_docs = {
     "Letter of Protection": "letter_of_protection"
 }
 
-misc_templates = {
-    "Medical Records Request": "medical_records_request",
-    "Third Party Spoliation Letter": "third_party_spoliation_letter"
-}
+# --- UI Starts Here ---
 
-# --- Streamlit UI ---
+st.title("📄 Legal Document Automation")
 
-st.title("Legal Document Automation")
-
+# Document Category
 selected_doc_category = st.selectbox(
     "Choose Document Category:",
     ["Petitions", "Discovery", "Demand Letters", "Insurance", "Medical"]
 )
 
+# --- Petitions ---
 if selected_doc_category == "Petitions":
     selected_petition_doc = st.selectbox("Select Petition Template:", list(petition_doc_map.keys()))
     selected_template_key = petition_doc_map[selected_petition_doc]
 
+# --- Discovery ---
 elif selected_doc_category == "Discovery":
-    selected_discovery_doc = st.selectbox(
-        "Select Discovery Document:",
-        list(discovery_doc_map.keys())
+    discovery_type = st.radio(
+        "Select Discovery Task:",
+        ["Documents to Request", "Answering Opposing Counsel Requests"]
     )
-    selected_template_key = discovery_doc_map[selected_discovery_doc]
 
+    if discovery_type == "Documents to Request":
+        selected_discovery_doc = st.selectbox("Select Document to Request:", list(requests_doc_map.keys()))
+        selected_template_key = requests_doc_map[selected_discovery_doc]
+
+    elif discovery_type == "Answering Opposing Counsel Requests":
+        selected_discovery_doc = st.selectbox("Select Document to Answer:", list(answers_doc_map.keys()))
+        selected_template_key = answers_doc_map[selected_discovery_doc]
+
+# --- Demand Letters ---
 elif selected_doc_category == "Demand Letters":
     selected_demand_doc = st.selectbox("Select Demand Letter Type:", list(demand_letters.keys()))
     selected_template_key = demand_letters[selected_demand_doc]
 
+# --- Insurance ---
 elif selected_doc_category == "Insurance":
     selected_insurance_doc = st.selectbox("Select Insurance Document:", list(insurance_docs.keys()))
     selected_template_key = insurance_docs[selected_insurance_doc]
 
+# --- Medical ---
 elif selected_doc_category == "Medical":
     selected_medical_doc = st.selectbox("Select Medical Document:", list(medical_docs.keys()))
     selected_template_key = medical_docs[selected_medical_doc]
 
-# Load and modify the document
+# --- Load Template ---
 doc = load_template(selected_template_key)
-if doc:
-    st.write(f"📝 Loaded template: `{selected_template_key}.docx`")
 
+if doc:
+    st.success(f"📝 Loaded: `{selected_template_key}.docx`")
+
+    # --- Placeholder Form ---
     st.subheader("🔁 Fill Placeholders")
     client_name = st.text_input("Client Name")
     date_of_accident = st.date_input("Date of Accident")
     attorney_name = st.text_input("Attorney Name")
 
-    # Optional GPT section generation
-    factual_background = ""
-    venue_text = ""
-
-    if st.checkbox("✍️ Generate Factual Background via GPT"):
-        facts = st.text_area("Enter case facts:")
+    # --- Optional GPT Section ---
+    if st.checkbox("✍️ Add Factual Background via GPT"):
+        case_facts = st.text_area("Enter case facts for GPT to expand:")
         if st.button("Generate Factual Background"):
-            factual_background = generate_gpt_section("Factual Background", facts)
-            st.text_area("Generated Factual Background", factual_background, height=200)
+            gpt_background = generate_gpt_section("Draft a factual background section:", case_facts)
+            st.text_area("Generated Background", gpt_background, height=200)
+            doc = fill_placeholders(doc, {"[FACTUAL_BACKGROUND]": gpt_background})
 
-    if st.checkbox("✍️ Generate Venue & Jurisdiction via GPT"):
-        venue_input = st.text_area("Describe venue and location context:")
-        if st.button("Generate Venue Section"):
-            venue_text = generate_gpt_section("Venue & Jurisdiction", venue_input)
-            st.text_area("Generated Venue Section", venue_text, height=200)
-
-    if st.button("Generate Final Document"):
+    # --- Fill Placeholders in Document ---
+    if st.button("🔨 Generate Final Document"):
         replacements = {
             "[CLIENT_NAME]": client_name,
             "[DATE_OF_ACCIDENT]": date_of_accident.strftime("%B %d, %Y"),
-            "[ATTORNEY_NAME]": attorney_name,
-            "[FACTUAL_BACKGROUND]": factual_background,
-            "[VENUE]": venue_text
+            "[ATTORNEY_NAME]": attorney_name
         }
         filled_doc = fill_placeholders(doc, replacements)
-        st.success("✅ Document generated with all placeholders filled.")
+        st.success("✅ Document filled with placeholder values.")
+
+        # --- Text Preview ---
+        if st.button("📄 Preview Document Text"):
+            preview = "\n".join(p.text for p in filled_doc.paragraphs)
+            st.text_area("Document Preview", preview, height=400)
+
+        # --- Download Button ---
         download_docx(filled_doc, f"{selected_template_key}_final.docx")
+
 
 
 
