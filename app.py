@@ -5,7 +5,11 @@ import os
 # --- Utility Functions ---
 
 def load_template(template_name):
-    return Document(os.path.join("templates", f"{template_name}.docx"))
+    path = os.path.join("templates", f"{template_name}.docx")
+    if not os.path.exists(path):
+        st.error(f"❌ Template not found: {template_name}.docx")
+        return None
+    return Document(path)
 
 def fill_placeholders(doc, replacements):
     for p in doc.paragraphs:
@@ -43,14 +47,7 @@ discovery_doc_map = {
     "Answer to Request for Disclosures": "answer_to_request_for_disclosures"
 }
 
-# Template generator maps
-basic_templates = {
-    "Letter of Representation": "letter_of_representation",
-    "Letter of Protection": "letter_of_protection",
-    "Medical Records Request": "medical_records_request",
-    "Third Party Spoliation Letter": "third_party_spoliation_letter"
-}
-
+# Demand Letters
 demand_letters = {
     "Stowers Demand Letter": "stowers_demand_letter",
     "General Demand Letter": "demand_letter",
@@ -60,28 +57,36 @@ demand_letters = {
     "Dog Bite Demand Letter": "dog_bite_demand_letter"
 }
 
+# Insurance Category
+insurance_docs = {
+    "Letter of Representation": "letter_of_representation",
+    "Uninsured/Underinsured Letter of Representation": "um_uim_letter_of_representation"
+}
+
+# Medical Category
+medical_docs = {
+    "Letter of Protection": "letter_of_protection"
+}
+
+# Miscellaneous Templates
+misc_templates = {
+    "Medical Records Request": "medical_records_request",
+    "Third Party Spoliation Letter": "third_party_spoliation_letter"
+}
+
 # --- UI Starts Here ---
 st.title("Legal Document Automation")
 
-# Function Selector
-selected_function = st.selectbox(
-    "Choose Function:",
-    ["Petition", "Template Generator"]
+# Document Category Selector
+selected_doc_category = st.selectbox(
+    "Choose Document Category:",
+    ["Petitions", "Discovery", "Demand Letters", "Insurance", "Medical"]
 )
 
-# Document Category Selector
-if selected_function == "Petition":
-    selected_doc_category = "Petitions"  # Locked to petitions
-else:
-    selected_doc_category = st.selectbox(
-        "Choose Document Category:",
-        ["Petitions", "Discovery"]
-    )
-
 # PETITION SECTION
-if selected_function == "Petition":
+if selected_doc_category == "Petitions":
     selected_petition_doc = st.selectbox(
-        "Select Petition Type:",
+        "Select Petition Template:",
         list(petition_doc_map.keys())
     )
     selected_template_key = petition_doc_map[selected_petition_doc]
@@ -104,30 +109,35 @@ elif selected_doc_category == "Discovery":
     )
     selected_template_key = discovery_doc_map[selected_discovery_doc]
 
-# TEMPLATE GENERATOR SECTION
-elif selected_function == "Template Generator":
-    template_type = st.selectbox(
-        "Select Template Type:",
-        ["General Templates", "Demand Letters"]
+# DEMAND LETTERS SECTION
+elif selected_doc_category == "Demand Letters":
+    selected_demand_doc = st.selectbox(
+        "Select Demand Letter Type:",
+        list(demand_letters.keys())
     )
+    selected_template_key = demand_letters[selected_demand_doc]
 
-    if template_type == "General Templates":
-        selected_template_doc = st.selectbox(
-            "Select Document:",
-            list(basic_templates.keys())
-        )
-        selected_template_key = basic_templates[selected_template_doc]
+# INSURANCE SECTION
+elif selected_doc_category == "Insurance":
+    selected_insurance_doc = st.selectbox(
+        "Select Insurance Document:",
+        list(insurance_docs.keys())
+    )
+    selected_template_key = insurance_docs[selected_insurance_doc]
 
-    elif template_type == "Demand Letters":
-        selected_demand_doc = st.selectbox(
-            "Select Demand Letter Type:",
-            list(demand_letters.keys())
-        )
-        selected_template_key = demand_letters[selected_demand_doc]
+# MEDICAL SECTION
+elif selected_doc_category == "Medical":
+    selected_medical_doc = st.selectbox(
+        "Select Medical Document:",
+        list(medical_docs.keys())
+    )
+    selected_template_key = medical_docs[selected_medical_doc]
 
 # Load the selected template and show confirmation
 doc = load_template(selected_template_key)
-st.write(f"\n📝 Loaded template: `{selected_template_key}.docx`")
+if doc:
+    st.write(f"\n📝 Loaded template: `{selected_template_key}.docx`")
+
 
 
 
