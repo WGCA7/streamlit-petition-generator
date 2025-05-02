@@ -9,7 +9,7 @@ from pathlib import Path
 from datetime import datetime
 
 USERNAME = "admin"
-PASSWORD = "letmein123"
+PASSWORD = "baby"
 
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
