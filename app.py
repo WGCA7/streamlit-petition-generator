@@ -2,6 +2,44 @@ import streamlit as st
 from docx import Document
 import os
 from io import BytesIO
+import re
+
+# --- Placeholder Schema ---
+PLACEHOLDER_SCHEMA = {
+    "Client Info": {
+        "[CLIENT_NAME]": "Client Name",
+        "[CLIENT_DOB]": "Date of Birth",
+        "[CLIENT_PHONE]": "Phone Number"
+    },
+    "Accident Info": {
+        "[DATE_OF_ACCIDENT]": "Date of Accident",
+        "[LOCATION_OF_ACCIDENT]": "Accident Location",
+        "[POLICE_REPORT_NUMBER]": "Police Report Number"
+    },
+    "Attorney Info": {
+        "[ATTORNEY_NAME]": "Attorney Name",
+        "[FIRM_NAME]": "Firm Name"
+    },
+    "Insurance Info": {
+        "[INSURANCE_COMPANY]": "Insurance Company",
+        "[CLAIM_NUMBER]": "Claim Number"
+    },
+    "Legal Content": {
+        "[FACTUAL_BACKGROUND]": "Factual Background",
+        "[VENUE_AND_JURISDICTION]": "Venue & Jurisdiction",
+        "[NEGLIGENCE_ALLEGATIONS]": "Negligence Allegations",
+        "[PRAYER]": "Prayer",
+        "[DAMAGES_SUMMARY]": "Damages Summary"
+    },
+    "Defendant Info": {
+        "[DEFENDANT_1_NAME]": "Defendant 1 Name",
+        "[DEFENDANT_1_ADDRESS]": "Defendant 1 Address",
+        "[DEFENDANT_1_INSURANCE]": "Defendant 1 Insurance Carrier",
+        "[DEFENDANT_2_NAME]": "Defendant 2 Name (if applicable)",
+        "[DEFENDANT_2_ADDRESS]": "Defendant 2 Address (if applicable)",
+        "[DEFENDANT_2_INSURANCE]": "Defendant 2 Insurance Carrier (if applicable)"
+    }
+}
 
 # --- Utility Functions ---
 
@@ -31,6 +69,12 @@ def download_docx(doc, filename):
         file_name=filename,
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
+
+def extract_placeholders(doc):
+    found = set()
+    for p in doc.paragraphs:
+        found.update(re.findall(r"\[[A-Z0-9_]+\]", p.text))
+    return found
 
 # --- Template Maps ---
 
@@ -75,91 +119,98 @@ medical_docs = {
     "Letter of Protection": "letter_of_protection"
 }
 
-# --- UI Starts Here ---
+# --- Streamlit App UI ---
 
 st.title("📄 Legal Document Automation")
 
-selected_template_key = None  # <-- always initialize
+selected_template_key = None
 
-# Document Category
 selected_doc_category = st.selectbox(
     "Choose Document Category:",
     ["Petitions", "Discovery", "Demand Letters", "Insurance", "Medical"]
 )
 
-# --- Petitions ---
 if selected_doc_category == "Petitions":
     selected_petition_doc = st.selectbox("Select Petition Template:", list(petition_doc_map.keys()))
     selected_template_key = petition_doc_map[selected_petition_doc]
 
-# --- Discovery ---
 elif selected_doc_category == "Discovery":
     discovery_type = st.radio(
         "Select Discovery Task:",
         ["Documents to Request", "Answering Opposing Counsel Requests"]
     )
-
     if discovery_type == "Documents to Request":
         selected_discovery_doc = st.selectbox("Select Document to Request:", list(requests_doc_map.keys()))
         selected_template_key = requests_doc_map[selected_discovery_doc]
-
     elif discovery_type == "Answering Opposing Counsel Requests":
         selected_discovery_doc = st.selectbox("Select Document to Answer:", list(answers_doc_map.keys()))
         selected_template_key = answers_doc_map[selected_discovery_doc]
 
-# --- Demand Letters ---
 elif selected_doc_category == "Demand Letters":
     selected_demand_doc = st.selectbox("Select Demand Letter Type:", list(demand_letters.keys()))
     selected_template_key = demand_letters[selected_demand_doc]
 
-# --- Insurance ---
 elif selected_doc_category == "Insurance":
     selected_insurance_doc = st.selectbox("Select Insurance Document:", list(insurance_docs.keys()))
     selected_template_key = insurance_docs[selected_insurance_doc]
 
-# --- Medical ---
 elif selected_doc_category == "Medical":
     selected_medical_doc = st.selectbox("Select Medical Document:", list(medical_docs.keys()))
     selected_template_key = medical_docs[selected_medical_doc]
 
-# --- Load Template ---
+# --- Load and Process Template ---
 if selected_template_key:
     doc = load_template(selected_template_key)
 
     if doc:
         st.success(f"📝 Loaded: `{selected_template_key}.docx`")
 
-        # --- Placeholder Form ---
+        # --- Placeholder Form Using Expanders ---
         st.subheader("🔁 Fill Placeholders")
-        client_name = st.text_input("Client Name")
-        date_of_accident = st.date_input("Date of Accident")
-        attorney_name = st.text_input("Attorney Name")
+        replacements = {}
 
-        # --- Optional GPT Section ---
+        for section, fields in PLACEHOLDER_SCHEMA.items():
+            with st.expander(f"📂 {section}"):
+                show_extra = True
+                if section == "Defendant Info":
+                    show_extra = st.checkbox("Include Second Defendant?", key="show_def2")
+                elif section == "Plaintiff Info":
+                    show_extra = st.checkbox("Include Second Plaintiff?", key="show_plaintiff2")
+                elif section == "Witness Info":
+                    show_extra = st.checkbox("Include Witness Details?", key="show_witnesses")
+                elif section == "Medical Provider Info":
+                    show_extra = st.checkbox("Include Medical Providers?", key="show_medical_providers")
+
+                for placeholder, label in fields.items():
+                    if (
+                        ("DEFENDANT_2" in placeholder and not st.session_state.get("show_def2", False)) or
+                        ("PLAINTIFF_2" in placeholder and not st.session_state.get("show_plaintiff2", False)) or
+                        ("WITNESS_" in placeholder and not st.session_state.get("show_witnesses", False)) or
+                        ("MEDICAL_PROVIDER_" in placeholder and not st.session_state.get("show_medical_providers", False))
+                    ):
+                        continue
+                    value = st.text_input(label, key=placeholder)
+                    replacements[placeholder] = value
+
+        # --- GPT-style Section Generation ---
         if st.checkbox("✍️ Add Factual Background via GPT"):
             case_facts = st.text_area("Enter case facts for GPT to expand:")
             if st.button("Generate Factual Background"):
                 gpt_background = generate_gpt_section("Draft a factual background section:", case_facts)
                 st.text_area("Generated Background", gpt_background, height=200)
-                doc = fill_placeholders(doc, {"[FACTUAL_BACKGROUND]": gpt_background})
+                replacements["[FACTUAL_BACKGROUND]"] = gpt_background
 
-        # --- Fill Placeholders in Document ---
+        # --- Finalize Document ---
         if st.button("🔨 Generate Final Document"):
-            replacements = {
-                "[CLIENT_NAME]": client_name,
-                "[DATE_OF_ACCIDENT]": date_of_accident.strftime("%B %d, %Y"),
-                "[ATTORNEY_NAME]": attorney_name
-            }
             filled_doc = fill_placeholders(doc, replacements)
             st.success("✅ Document filled with placeholder values.")
 
-            # --- Text Preview ---
             if st.button("📄 Preview Document Text"):
                 preview = "\n".join(p.text for p in filled_doc.paragraphs)
                 st.text_area("Document Preview", preview, height=400)
 
-            # --- Download Button ---
             download_docx(filled_doc, f"{selected_template_key}_final.docx")
+
 
 
 
