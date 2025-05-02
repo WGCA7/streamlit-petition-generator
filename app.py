@@ -178,7 +178,8 @@ if selected_template_key:
                     replacements[placeholder] = value
 
         # --- Venue & Jurisdiction Generator ---
-        with st.expander("📍 Venue & Jurisdiction Generator (optional override)"):
+        # --- Venue & Jurisdiction Generator ---
+with st.expander("📍 Venue & Jurisdiction Generator (optional override)"):
     venue_zip = st.text_input("Enter ZIP code of the accident location")
     defendant_county = st.text_input("Enter county where Defendant resides (if known)")
     defendant_principal_office = st.text_input("Enter county of Defendant's principal office (if applicable)")
@@ -195,24 +196,14 @@ if selected_template_key:
 
     if st.button("Generate Venue Narrative"):
         accident_county = "Harris" if venue_zip == "77002" else "Unknown"
-        venue_narrative = generate_venue_narrative(accident_county, defendant_county, defendant_principal_office)
+        venue_narrative = generate_venue_narrative(
+            accident_county,
+            defendant_county,
+            defendant_principal_office
+        )
         st.text_area("Generated Venue & Jurisdiction", venue_narrative, height=200)
         replacements["[VENUE_AND_JURISDICTION]"] = venue_narrative
 
-            venue_bases = []
-            if accident_county:
-                venue_bases.append(f"under CPRC §15.002(a)(1) because a substantial part of the events giving rise to this lawsuit occurred in {accident_county} County")
-            if def_county:
-                venue_bases.append(f"under CPRC §15.002(a)(2) because the Defendant resides in {def_county} County")
-            if office_county:
-                venue_bases.append(f"under CPRC §15.002(a)(3) because the Defendant’s principal office is located in {office_county} County")
-            return f"Venue is proper in {accident_county} County, Texas, and also potentially " + "; ".join(venue_bases) + "."
-
-        if st.button("Generate Venue Narrative"):
-            accident_county = "Harris" if venue_zip == "77002" else "Unknown"
-            venue_narrative = generate_venue_narrative(accident_county, defendant_county, defendant_principal_office)
-            st.text_area("Generated Venue & Jurisdiction", venue_narrative, height=200)
-            replacements["[VENUE_AND_JURISDICTION]"] = venue_narrative
 
         # --- AI GPT Section Generator ---
         st.subheader("🧠 AI-Generated Sections (Factual Background, Venue, Negligence, Prayer)")
