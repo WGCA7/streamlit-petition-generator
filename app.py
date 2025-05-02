@@ -208,10 +208,10 @@ with st.expander("📍 Venue & Jurisdiction Generator (optional override)"):
         # --- AI Section Generator ---
         with st.expander("🧠 AI Section Generator (Factual Background, Venue, Negligence, Prayer)"):
             if "gpt_sections" not in st.session_state:
-        st.session_state["gpt_sections"] = {}
+                st.session_state["gpt_sections"] = {}
 
             for placeholder, meta in GPT_SECTION_PROMPTS.items():
-        st.markdown(f"### 📄 {meta['label']}")
+                st.markdown(f"### 📄 {meta['label']}")
         context = st.text_area(f"Enter context for {meta['label']}:", key=f"ctx_{placeholder}")
                 if st.button(f"Generate {meta['label']}", key=f"btn_{placeholder}"):
             result = f"[Generated GPT Section for: {meta['label']}\n\n{context}]"
