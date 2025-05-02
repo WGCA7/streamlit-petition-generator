@@ -1,136 +1,130 @@
-# STREAMLIT APP: Polished UI for Petitions + Discovery
-
 import streamlit as st
-import openai
-import requests
-from docx import Document
-from io import BytesIO
-from dotenv import load_dotenv
-import os
-from pathlib import Path
-from datetime import datetime
-import json
 
-USERNAME = "admin"
-PASSWORD = "letmein123"
+# --- Mapping dictionaries ---
 
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
+# Petition document map
+petition_doc_map = {
+    "Standard Personal Injury Petition": "standard_personal_injury_petition",
+    "Motor Vehicle Accident Petition": "motor_vehicle_accident_petition",
+    "Premises Liability Petition": "premises_liability_petition",
+    "Wrongful Death Petition": "wrongful_death_petition",
+    "Dog Bite Petition": "dog_bite_petition",
+    "Assault Petition": "assault_petition",
+    "Medical Malpractice Petition": "medical_malpractice_petition"
+}
 
-if not st.session_state["authenticated"]:
-    st.title("Secure Legal Document Generator")
-    st.markdown("Please log in to access the automation tool.")
-    user = st.text_input("Username")
-    pw = st.text_input("Password", type="password")
+# Discovery document map
+discovery_doc_map = {
+    "Plaintiff's Initial Disclosures": "initial_disclosures",
+    "Plaintiff's Request for Admissions": "request_for_admissions",
+    "Plaintiff's Interrogatories": "interrogatories",
+    "Plaintiff's Request for Production": "request_for_production",
+    "Plaintiff's Request for Disclosures": "request_for_disclosures",
+    "Answer to Request for Admissions": "answer_to_request_for_admissions",
+    "Answer to Interrogatories": "answer_to_interrogatories",
+    "Answer to Request for Production": "answer_to_request_for_production",
+    "Answer to Request for Disclosures": "answer_to_request_for_disclosures"
+}
 
-    if st.button("Login"):
-        if user == USERNAME and pw == PASSWORD:
-            st.session_state["authenticated"] = True
-        else:
-            st.error("Incorrect username or password.")
-    st.stop()
+# Template generator maps
+basic_templates = {
+    "Letter of Representation": "letter_of_representation",
+    "Letter of Protection": "letter_of_protection",
+    "Medical Records Request": "medical_records_request",
+    "Third Party Spoliation Letter": "third_party_spoliation_letter"
+}
 
-if st.session_state["authenticated"]:
-    load_dotenv()
-    openai.api_key = os.getenv("OPENAI_API_KEY")
+demand_letters = {
+    "Stowers Demand Letter": "stowers_demand_letter",
+    "General Demand Letter": "demand_letter",
+    "Motor Vehicle Accident Demand Letter": "motor_vehicle_demand_letter",
+    "Uninsured/Underinsured Motorist Demand Letter": "um_uim_demand_letter",
+    "Slip and Fall Demand Letter": "slip_and_fall_demand_letter",
+    "Dog Bite Demand Letter": "dog_bite_demand_letter"
+}
 
-    st.title("Document Automation Portal")
-    st.markdown("---")
+# --- UI Starts Here ---
+st.title("Legal Document Automation")
 
-    st.header("📄 Petition & Template Generator")
+# Function Selector
+selected_function = st.selectbox(
+    "Choose Function:",
+    ["Petition", "Template Generator"]
+)
 
-    TEMPLATE_MAP = {
-        "Petitions": {
-            "MVA – 1 Defendant": "petition_mva_1def.docx",
-            "MVA – 2 Defendants": "petition_mva_2def.docx",
-            "Premises Liability": "petition_premises.docx"
-        },
-        "Discovery": {
-            "Plaintiff’s Initial Disclosures": "plaintiff_initial_disclosures.docx",
-            "Request for Disclosure": "request_for_disclosure.docx"
-        }
-    }
+# Document Category Selector
+if selected_function == "Petition":
+    selected_doc_category = "Petitions"  # Locked to petitions
+else:
+    selected_doc_category = st.selectbox(
+        "Choose Document Category:",
+        ["Petitions", "Discovery"]
+    )
 
-    with st.expander("🔍 Select Document Type"):
-        category = st.selectbox("Choose Document Category", ["Petitions", "Discovery"])
-        doc_type = st.selectbox("Choose Document Type", list(TEMPLATE_MAP[category].keys()))
-        template_path = Path("templates") / TEMPLATE_MAP[category][doc_type]
+# PETITION SECTION
+if selected_function == "Petition":
+    selected_petition_doc = st.selectbox(
+        "Select Petition Type:",
+        list(petition_doc_map.keys())
+    )
+    selected_template_key = petition_doc_map[selected_petition_doc]
 
-    st.markdown("---")
-    st.subheader("📁 Case Information")
-    search_type = st.radio("Search by", ["Case ID", "Client Name"])
-    case_data = {}
+# DISCOVERY SECTION
+elif selected_doc_category == "Discovery":
+    discovery_type = st.radio(
+        "Select Discovery Task:",
+        ["Answering Opposing Counsel Requests", "Drafting Our Requests"]
+    )
 
-    if search_type == "Case ID":
-        case_id = st.text_input("Enter Case ID")
-        if case_id:
-            st.success(f"Simulated pull of case data for Case ID: {case_id}")
-            case_data = {"client": {"name": "Jane Sample"}, "defendant": {"name": "XYZ Corp"}}
+    if discovery_type == "Answering Opposing Counsel Requests":
+        selected_discovery_doc = st.selectbox(
+            "Select Discovery Document to Answer:",
+            [
+                "Answer to Request for Admissions",
+                "Answer to Interrogatories",
+                "Answer to Request for Production",
+                "Answer to Request for Disclosures"
+            ]
+        )
     else:
-        client_name = st.text_input("Enter Client Name")
-        if client_name:
-            case_options = [f"{client_name} – Case {i}" for i in range(1, 4)]
-            selected = st.selectbox("Select Matching Case", case_options)
-            st.success(f"Simulated pull of case data for {selected}")
-            case_data = {"client": {"name": client_name}, "defendant": {"name": "XYZ Corp"}}
+        selected_discovery_doc = st.selectbox(
+            "Select Discovery Document to Draft:",
+            [
+                "Plaintiff's Initial Disclosures",
+                "Plaintiff's Request for Admissions",
+                "Plaintiff's Interrogatories",
+                "Plaintiff's Request for Production",
+                "Plaintiff's Request for Disclosures"
+            ]
+        )
 
-    st.markdown("---")
+    selected_template_key = discovery_doc_map[selected_discovery_doc]
 
-    if case_data and category == "Discovery":
-        st.subheader("⚖️ Discovery Drafting Options")
-        doc_purpose = st.radio("Are you drafting or answering?", ["Answering Opposing Counsel Requests", "Drafting Our Requests"])
-        discovery_type = st.selectbox("Select Discovery Type", [
-            "Request for Admissions",
-            "Request for Production",
-            "Interrogatories",
-            "Request for Disclosure"
-        ])
-        uploaded_file = st.file_uploader("Upload Discovery Document (.docx)", type=["docx"])
+# TEMPLATE GENERATOR SECTION
+elif selected_function == "Template Generator":
+    template_type = st.selectbox(
+        "Select Template Type:",
+        ["General Templates", "Demand Letters"]
+    )
 
-        if uploaded_file:
-            discovery_doc = Document(uploaded_file)
-            case_facts = f"Case details: {case_data}. Use this information when crafting your response."
+    if template_type == "General Templates":
+        selected_template_doc = st.selectbox(
+            "Select Document:",
+            list(basic_templates.keys())
+        )
+        selected_template_key = basic_templates[selected_template_doc]
 
-            output_doc = Document()
-            title = ("Plaintiff's Responses to Opposing Counsel's Discovery Requests"
-                     if doc_purpose == "Answering Opposing Counsel Requests"
-                     else "Plaintiff's Discovery Requests to Opposing Counsel")
-            output_doc.add_heading(title, 0)
+    elif template_type == "Demand Letters":
+        selected_demand_doc = st.selectbox(
+            "Select Demand Letter Type:",
+            list(demand_letters.keys())
+        )
+        selected_template_key = demand_letters[selected_demand_doc]
 
-            for para in discovery_doc.paragraphs:
-                if para.text.strip():
-                    prefix = "[RFA]" if "admit" in para.text.lower() else "[ROG]" if "describe" in para.text.lower() or "explain" in para.text.lower() else "[RFP]" if "produce" in para.text.lower() else "[DISCOVERY]"
-                    if doc_purpose == "Answering Opposing Counsel Requests":
-                        prompt = f"Respond to the following {prefix} based on the facts of a Texas personal injury case: '{para.text.strip()}'. {case_facts}"
-                        system_role = "You are a Texas litigation paralegal drafting discovery responses."
-                    else:
-                        prompt = f"Draft a well-phrased {prefix} for a Texas personal injury case that covers: '{para.text.strip()}'. {case_facts}"
-                        system_role = "You are a Texas litigation paralegal drafting discovery requests."
+# Load the selected template (placeholder logic)
+st.write(f"\n📝 You selected template: `{selected_template_key}`")
+# template = load_template(f"{selected_template_key}.docx")  # Replace this with your document logic
 
-                    try:
-                        ai_response = openai.ChatCompletion.create(
-                            model="gpt-4",
-                            messages=[
-                                {"role": "system", "content": system_role},
-                                {"role": "user", "content": prompt}
-                            ]
-                        )
-                        answer = ai_response['choices'][0]['message']['content']
-                        output_doc.add_paragraph(f"{prefix} {para.text.strip()}", style='List Number')
-                        output_doc.add_paragraph(f"{answer}")
-                    except Exception as e:
-                        output_doc.add_paragraph(f"{prefix} {para.text.strip()}", style='List Number')
-                        output_doc.add_paragraph(f"[Error generating response: {str(e)}]")
-
-            output_buffer = BytesIO()
-            output_doc.save(output_buffer)
-            output_buffer.seek(0)
-            st.download_button(
-                f"Download Discovery {doc_purpose.split()[0]} as Word Document",
-                data=output_buffer,
-                file_name=f"discovery_{discovery_type.replace(' ', '_').lower()}.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            )
 
 
 
