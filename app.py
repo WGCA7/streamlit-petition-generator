@@ -44,18 +44,18 @@ petition_doc_map = {
 }
 
 requests_doc_map = {
-    "Plaintiff's Initial Disclosures": "initial_disclosures",
-    "Plaintiff's Interrogatories": "interrogatories",
+    "Plaintiff's Request for Initial Disclosures": "initial_disclosures",
+    "Plaintiff's Interrogatories to Defendant": "interrogatories",
     "Plaintiff's Request for Admissions": "request_for_admissions",
     "Plaintiff's Request for Production": "request_for_production",
     "Plaintiff's Request for Disclosures": "request_for_disclosures"
 }
 
 answers_doc_map = {
+    "Plaintiff’s Response to Defendant’s Request for Disclosures": "answer_to_request_for_disclosures"
     "Answer to Interrogatories": "answer_to_interrogatories",
     "Answer to Request for Admissions": "answer_to_request_for_admissions",
     "Answer to Request for Production": "answer_to_request_for_production",
-    "Answer to Request for Disclosures": "answer_to_request_for_disclosures"
 }
 
 demand_letters = {
