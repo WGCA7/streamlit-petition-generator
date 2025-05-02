@@ -48,7 +48,6 @@ requests_doc_map = {
     "Plaintiff's Interrogatories to Defendant": "interrogatories",
     "Plaintiff's Request for Admissions": "request_for_admissions",
     "Plaintiff's Request for Production": "request_for_production",
-    "Plaintiff's Request for Disclosures": "request_for_disclosures"
 }
 
 answers_doc_map = {
