@@ -80,6 +80,8 @@ medical_docs = {
 
 st.title("📄 Legal Document Automation")
 
+selected_template_key = None  # <-- always initialize
+
 # Document Category
 selected_doc_category = st.selectbox(
     "Choose Document Category:",
@@ -122,42 +124,44 @@ elif selected_doc_category == "Medical":
     selected_template_key = medical_docs[selected_medical_doc]
 
 # --- Load Template ---
-doc = load_template(selected_template_key)
+if selected_template_key:
+    doc = load_template(selected_template_key)
 
-if doc:
-    st.success(f"📝 Loaded: `{selected_template_key}.docx`")
+    if doc:
+        st.success(f"📝 Loaded: `{selected_template_key}.docx`")
 
-    # --- Placeholder Form ---
-    st.subheader("🔁 Fill Placeholders")
-    client_name = st.text_input("Client Name")
-    date_of_accident = st.date_input("Date of Accident")
-    attorney_name = st.text_input("Attorney Name")
+        # --- Placeholder Form ---
+        st.subheader("🔁 Fill Placeholders")
+        client_name = st.text_input("Client Name")
+        date_of_accident = st.date_input("Date of Accident")
+        attorney_name = st.text_input("Attorney Name")
 
-    # --- Optional GPT Section ---
-    if st.checkbox("✍️ Add Factual Background via GPT"):
-        case_facts = st.text_area("Enter case facts for GPT to expand:")
-        if st.button("Generate Factual Background"):
-            gpt_background = generate_gpt_section("Draft a factual background section:", case_facts)
-            st.text_area("Generated Background", gpt_background, height=200)
-            doc = fill_placeholders(doc, {"[FACTUAL_BACKGROUND]": gpt_background})
+        # --- Optional GPT Section ---
+        if st.checkbox("✍️ Add Factual Background via GPT"):
+            case_facts = st.text_area("Enter case facts for GPT to expand:")
+            if st.button("Generate Factual Background"):
+                gpt_background = generate_gpt_section("Draft a factual background section:", case_facts)
+                st.text_area("Generated Background", gpt_background, height=200)
+                doc = fill_placeholders(doc, {"[FACTUAL_BACKGROUND]": gpt_background})
 
-    # --- Fill Placeholders in Document ---
-    if st.button("🔨 Generate Final Document"):
-        replacements = {
-            "[CLIENT_NAME]": client_name,
-            "[DATE_OF_ACCIDENT]": date_of_accident.strftime("%B %d, %Y"),
-            "[ATTORNEY_NAME]": attorney_name
-        }
-        filled_doc = fill_placeholders(doc, replacements)
-        st.success("✅ Document filled with placeholder values.")
+        # --- Fill Placeholders in Document ---
+        if st.button("🔨 Generate Final Document"):
+            replacements = {
+                "[CLIENT_NAME]": client_name,
+                "[DATE_OF_ACCIDENT]": date_of_accident.strftime("%B %d, %Y"),
+                "[ATTORNEY_NAME]": attorney_name
+            }
+            filled_doc = fill_placeholders(doc, replacements)
+            st.success("✅ Document filled with placeholder values.")
 
-        # --- Text Preview ---
-        if st.button("📄 Preview Document Text"):
-            preview = "\n".join(p.text for p in filled_doc.paragraphs)
-            st.text_area("Document Preview", preview, height=400)
+            # --- Text Preview ---
+            if st.button("📄 Preview Document Text"):
+                preview = "\n".join(p.text for p in filled_doc.paragraphs)
+                st.text_area("Document Preview", preview, height=400)
 
-        # --- Download Button ---
-        download_docx(filled_doc, f"{selected_template_key}_final.docx")
+            # --- Download Button ---
+            download_docx(filled_doc, f"{selected_template_key}_final.docx")
+
 
 
 
