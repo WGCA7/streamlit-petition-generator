@@ -41,8 +41,27 @@ PLACEHOLDER_SCHEMA = {
     }
 }
 
-# --- Utility Functions ---
+# --- GPT Section Prompts ---
+GPT_SECTION_PROMPTS = {
+    "[FACTUAL_BACKGROUND]": {
+        "label": "Factual Background",
+        "prompt": "Draft a factual background section based on the following case facts:"
+    },
+    "[VENUE_AND_JURISDICTION]": {
+        "label": "Venue & Jurisdiction",
+        "prompt": "Explain the appropriate venue and jurisdiction for this case:"
+    },
+    "[NEGLIGENCE_ALLEGATIONS]": {
+        "label": "Negligence Allegations",
+        "prompt": "List the negligence allegations against the defendant based on the following facts:"
+    },
+    "[PRAYER]": {
+        "label": "Prayer for Relief",
+        "prompt": "Draft a standard prayer for relief in a personal injury petition:"
+    }
+}
 
+# --- Utility Functions ---
 def load_template(template_name):
     path = os.path.join("templates", f"{template_name}.docx")
     if not os.path.exists(path):
@@ -57,9 +76,6 @@ def fill_placeholders(doc, replacements):
                 p.text = p.text.replace(key, val)
     return doc
 
-def generate_gpt_section(prompt, context):
-    return f"[Generated GPT Section for: {prompt}\n\n{context}]"
-
 def download_docx(doc, filename):
     buffer = BytesIO()
     doc.save(buffer)
@@ -70,14 +86,7 @@ def download_docx(doc, filename):
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
 
-def extract_placeholders(doc):
-    found = set()
-    for p in doc.paragraphs:
-        found.update(re.findall(r"\[[A-Z0-9_]+\]", p.text))
-    return found
-
 # --- Template Maps ---
-
 petition_doc_map = {
     "MVA - 1 Defendant Original Petition": "mva_1_defendant_original_petition",
     "MVA - 2 Defendants Original Petition": "mva_2_defendants_original_petition",
@@ -119,12 +128,10 @@ medical_docs = {
     "Letter of Protection": "letter_of_protection"
 }
 
-# --- Streamlit App UI ---
-
+# --- Streamlit UI ---
 st.title("📄 Legal Document Automation")
 
 selected_template_key = None
-
 selected_doc_category = st.selectbox(
     "Choose Document Category:",
     ["Petitions", "Discovery", "Demand Letters", "Insurance", "Medical"]
@@ -133,83 +140,89 @@ selected_doc_category = st.selectbox(
 if selected_doc_category == "Petitions":
     selected_petition_doc = st.selectbox("Select Petition Template:", list(petition_doc_map.keys()))
     selected_template_key = petition_doc_map[selected_petition_doc]
-
 elif selected_doc_category == "Discovery":
-    discovery_type = st.radio(
-        "Select Discovery Task:",
-        ["Documents to Request", "Answering Opposing Counsel Requests"]
-    )
+    discovery_type = st.radio("Select Discovery Task:", ["Documents to Request", "Answering Opposing Counsel Requests"])
     if discovery_type == "Documents to Request":
         selected_discovery_doc = st.selectbox("Select Document to Request:", list(requests_doc_map.keys()))
         selected_template_key = requests_doc_map[selected_discovery_doc]
-    elif discovery_type == "Answering Opposing Counsel Requests":
+    else:
         selected_discovery_doc = st.selectbox("Select Document to Answer:", list(answers_doc_map.keys()))
         selected_template_key = answers_doc_map[selected_discovery_doc]
-
 elif selected_doc_category == "Demand Letters":
     selected_demand_doc = st.selectbox("Select Demand Letter Type:", list(demand_letters.keys()))
     selected_template_key = demand_letters[selected_demand_doc]
-
 elif selected_doc_category == "Insurance":
     selected_insurance_doc = st.selectbox("Select Insurance Document:", list(insurance_docs.keys()))
     selected_template_key = insurance_docs[selected_insurance_doc]
-
 elif selected_doc_category == "Medical":
     selected_medical_doc = st.selectbox("Select Medical Document:", list(medical_docs.keys()))
     selected_template_key = medical_docs[selected_medical_doc]
 
-# --- Load and Process Template ---
+# --- Load Template and UI Logic ---
 if selected_template_key:
     doc = load_template(selected_template_key)
-
     if doc:
         st.success(f"📝 Loaded: `{selected_template_key}.docx`")
 
-        # --- Placeholder Form Using Expanders ---
         st.subheader("🔁 Fill Placeholders")
         replacements = {}
-
         for section, fields in PLACEHOLDER_SCHEMA.items():
             with st.expander(f"📂 {section}"):
                 show_extra = True
                 if section == "Defendant Info":
                     show_extra = st.checkbox("Include Second Defendant?", key="show_def2")
-                elif section == "Plaintiff Info":
-                    show_extra = st.checkbox("Include Second Plaintiff?", key="show_plaintiff2")
-                elif section == "Witness Info":
-                    show_extra = st.checkbox("Include Witness Details?", key="show_witnesses")
-                elif section == "Medical Provider Info":
-                    show_extra = st.checkbox("Include Medical Providers?", key="show_medical_providers")
-
                 for placeholder, label in fields.items():
-                    if (
-                        ("DEFENDANT_2" in placeholder and not st.session_state.get("show_def2", False)) or
-                        ("PLAINTIFF_2" in placeholder and not st.session_state.get("show_plaintiff2", False)) or
-                        ("WITNESS_" in placeholder and not st.session_state.get("show_witnesses", False)) or
-                        ("MEDICAL_PROVIDER_" in placeholder and not st.session_state.get("show_medical_providers", False))
-                    ):
+                    if "DEFENDANT_2" in placeholder and not st.session_state.get("show_def2", False):
                         continue
                     value = st.text_input(label, key=placeholder)
                     replacements[placeholder] = value
 
-        # --- GPT-style Section Generation ---
-        if st.checkbox("✍️ Add Factual Background via GPT"):
-            case_facts = st.text_area("Enter case facts for GPT to expand:")
-            if st.button("Generate Factual Background"):
-                gpt_background = generate_gpt_section("Draft a factual background section:", case_facts)
-                st.text_area("Generated Background", gpt_background, height=200)
-                replacements["[FACTUAL_BACKGROUND]"] = gpt_background
+        # --- Venue & Jurisdiction Generator ---
+        st.subheader("📍 Venue & Jurisdiction Generator")
+        venue_zip = st.text_input("Enter ZIP code of the accident location")
+        defendant_county = st.text_input("Enter county where Defendant resides (if known)")
+        defendant_principal_office = st.text_input("Enter county of Defendant's principal office (if applicable)")
 
-        # --- Finalize Document ---
+        def generate_venue_narrative(accident_county, def_county=None, office_county=None):
+            venue_bases = []
+            if accident_county:
+                venue_bases.append(f"under CPRC §15.002(a)(1) because a substantial part of the events giving rise to this lawsuit occurred in {accident_county} County")
+            if def_county:
+                venue_bases.append(f"under CPRC §15.002(a)(2) because the Defendant resides in {def_county} County")
+            if office_county:
+                venue_bases.append(f"under CPRC §15.002(a)(3) because the Defendant’s principal office is located in {office_county} County")
+            return f"Venue is proper in {accident_county} County, Texas, and also potentially " + "; ".join(venue_bases) + "."
+
+        if st.button("Generate Venue Narrative"):
+            accident_county = "Harris" if venue_zip == "77002" else "Unknown"
+            venue_narrative = generate_venue_narrative(accident_county, defendant_county, defendant_principal_office)
+            st.text_area("Generated Venue & Jurisdiction", venue_narrative, height=200)
+            replacements["[VENUE_AND_JURISDICTION]"] = venue_narrative
+
+        # --- AI GPT Section Generator ---
+        st.subheader("🧠 AI-Generated Sections (Factual Background, Venue, Negligence, Prayer)")
+        if "gpt_sections" not in st.session_state:
+            st.session_state["gpt_sections"] = {}
+
+        with st.expander("✍️ Generate Legal Narrative Sections with AI"):
+            for placeholder, meta in GPT_SECTION_PROMPTS.items():
+                st.markdown(f"### 📄 {meta['label']}")
+                context = st.text_area(f"Context for {meta['label']}", key=f"ctx_{placeholder}")
+                if st.button(f"Generate {meta['label']}", key=f"btn_{placeholder}"):
+                    result = f"[Generated GPT Section for: {meta['label']}\n\n{context}]"
+                    st.session_state["gpt_sections"][placeholder] = result
+                if placeholder in st.session_state["gpt_sections"]:
+                    st.text_area(f"🧠 {meta['label']} Output", st.session_state["gpt_sections"][placeholder], height=200, key=f"out_{placeholder}")
+                    replacements[placeholder] = st.session_state["gpt_sections"][placeholder]
+
         if st.button("🔨 Generate Final Document"):
             filled_doc = fill_placeholders(doc, replacements)
             st.success("✅ Document filled with placeholder values.")
-
             if st.button("📄 Preview Document Text"):
                 preview = "\n".join(p.text for p in filled_doc.paragraphs)
                 st.text_area("Document Preview", preview, height=400)
-
             download_docx(filled_doc, f"{selected_template_key}_final.docx")
+
 
 
 
