@@ -205,21 +205,26 @@ with st.expander("📍 Venue & Jurisdiction Generator (optional override)"):
         replacements["[VENUE_AND_JURISDICTION]"] = venue_narrative
 
 
-        # --- AI GPT Section Generator ---
-        st.subheader("🧠 AI-Generated Sections (Factual Background, Venue, Negligence, Prayer)")
-        if "gpt_sections" not in st.session_state:
-            st.session_state["gpt_sections"] = {}
+        # --- AI Section Generator ---
+        with st.expander("🧠 AI Section Generator (Factual Background, Venue, Negligence, Prayer)"):
+    if "gpt_sections" not in st.session_state:
+        st.session_state["gpt_sections"] = {}
 
-        with st.expander("✍️ Generate Legal Narrative Sections with AI"):
-            for placeholder, meta in GPT_SECTION_PROMPTS.items():
-                st.markdown(f"### 📄 {meta['label']}")
-                context = st.text_area(f"Context for {meta['label']}", key=f"ctx_{placeholder}")
-                if st.button(f"Generate {meta['label']}", key=f"btn_{placeholder}"):
-                    result = f"[Generated GPT Section for: {meta['label']}\n\n{context}]"
-                    st.session_state["gpt_sections"][placeholder] = result
-                if placeholder in st.session_state["gpt_sections"]:
-                    st.text_area(f"🧠 {meta['label']} Output", st.session_state["gpt_sections"][placeholder], height=200, key=f"out_{placeholder}")
-                    replacements[placeholder] = st.session_state["gpt_sections"][placeholder]
+    for placeholder, meta in GPT_SECTION_PROMPTS.items():
+        st.markdown(f"### 📄 {meta['label']}")
+        context = st.text_area(f"Enter context for {meta['label']}:", key=f"ctx_{placeholder}")
+        if st.button(f"Generate {meta['label']}", key=f"btn_{placeholder}"):
+            result = f"[Generated GPT Section for: {meta['label']}\n\n{context}]"
+            st.session_state["gpt_sections"][placeholder] = result
+
+        if placeholder in st.session_state["gpt_sections"]:
+            st.text_area(
+                f"🧠 Generated {meta['label']} Output",
+                st.session_state["gpt_sections"][placeholder],
+                height=200,
+                key=f"out_{placeholder}"
+            )
+            replacements[placeholder] = st.session_state["gpt_sections"][placeholder]
 
         if st.button("🔨 Generate Final Document"):
             filled_doc = fill_placeholders(doc, replacements)
