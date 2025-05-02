@@ -57,6 +57,7 @@ if st.session_state["authenticated"]:
 
     if section == "Discovery Drafting & Responses":
         doc_type = st.radio("Are you drafting requests or answering requests?", ["Answering OC Requests", "Drafting Our Requests"])
+        discovery_type = st.selectbox("Select Discovery Type", ["RFA", "RFP", "ROG", "Disclosure"])
         uploaded_file = st.file_uploader("Upload Discovery Document (.docx)", type=["docx"])
         case_id = st.text_input("Enter CasePeer Case ID (optional):")
 
@@ -105,7 +106,7 @@ if st.session_state["authenticated"]:
             output_doc.save(output_buffer)
             output_buffer.seek(0)
 
-            file_label = "responses" if doc_type == "Answering OC Requests" else "requests"
+            file_label = f"{discovery_type.lower()}_responses" if doc_type == "Answering OC Requests" else f"{discovery_type.lower()}_requests"
             st.download_button(
                 f"Download Discovery {file_label.title()} as Word Document",
                 data=output_buffer,
@@ -215,6 +216,7 @@ if st.session_state["authenticated"]:
                 file_name=f"{doc_type.replace(' ', '_').lower()}.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
+
 
 
 
