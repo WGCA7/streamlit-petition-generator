@@ -53,19 +53,20 @@ if st.session_state["authenticated"]:
         return None
 
     st.header("Document Automation Portal")
-    section = st.selectbox("Choose Function", ["Discovery Drafting & Responses", "Petition & Template Generator"])
+    section = st.selectbox("Choose Function", ["Petition & Template Generator", "Discovery Drafting & Responses"])
 
     if section == "Discovery Drafting & Responses":
         doc_type = st.radio("Are you drafting requests or answering requests?", ["Answering OC Requests", "Drafting Our Requests"])
         uploaded_file = st.file_uploader("Upload Discovery Document (.docx)", type=["docx"])
-        case_id = st.text_input("Enter CasePeer Case ID:")
+        case_id = st.text_input("Enter CasePeer Case ID (optional):")
 
-        if uploaded_file and case_id:
+        if uploaded_file:
             discovery_doc = Document(uploaded_file)
-            case_url = f"https://api.casepeer.com/v1/cases/{case_id}"
-            response = requests.get(case_url, headers=HEADERS)
-
-            case_data = response.json() if response.status_code == 200 else {}
+            case_data = {}
+            if case_id:
+                case_url = f"https://api.casepeer.com/v1/cases/{case_id}"
+                response = requests.get(case_url, headers=HEADERS)
+                case_data = response.json() if response.status_code == 200 else {}
             case_facts = f"Case details: {case_data}. Use this information when crafting your response."
 
             output_doc = Document()
@@ -115,6 +116,10 @@ if st.session_state["authenticated"]:
     elif section == "Petition & Template Generator":
         st.subheader("Generate Petition or Other Template-Based Document")
         TEMPLATE_MAP = {
+            "Discovery": {
+                "Plaintiff’s Initial Disclosures": "plaintiff_initial_disclosures.docx",
+                "Request for Disclosure": "request_for_disclosure.docx"
+            },
             "Petitions": {
                 "MVA – 1 Defendant": "petition_mva_1def.docx",
                 "MVA – 2 Defendants": "petition_mva_2def.docx",
@@ -210,6 +215,7 @@ if st.session_state["authenticated"]:
                 file_name=f"{doc_type.replace(' ', '_').lower()}.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
+
 
 
 
