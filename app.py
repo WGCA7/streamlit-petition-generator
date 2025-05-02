@@ -1,6 +1,7 @@
 import streamlit as st
 from docx import Document
 import os
+from io import BytesIO
 
 # --- Utility Functions ---
 
@@ -19,12 +20,21 @@ def fill_placeholders(doc, replacements):
     return doc
 
 def generate_gpt_section(prompt, context):
-    # Placeholder for GPT content generation
-    return f"[Generated Content for: {prompt}]"
+    # Placeholder GPT logic
+    return f"[Generated: {prompt} -> {context}]"
 
-# --- Mapping dictionaries ---
+def download_docx(doc, filename):
+    buffer = BytesIO()
+    doc.save(buffer)
+    st.download_button(
+        label="📥 Download Final Document",
+        data=buffer.getvalue(),
+        file_name=filename,
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
 
-# Petition document map
+# --- Template Maps ---
+
 petition_doc_map = {
     "MVA - 1 Defendant Original Petition": "mva_1_defendant_original_petition",
     "MVA - 2 Defendants Original Petition": "mva_2_defendants_original_petition",
@@ -34,7 +44,6 @@ petition_doc_map = {
     "Medical Malpractice Original Petition": "medical_malpractice_original_petition"
 }
 
-# Discovery document map
 discovery_doc_map = {
     "Plaintiff's Initial Disclosures": "initial_disclosures",
     "Plaintiff's Interrogatories": "interrogatories",
@@ -47,7 +56,6 @@ discovery_doc_map = {
     "Answer to Request for Disclosures": "answer_to_request_for_disclosures"
 }
 
-# Demand Letters
 demand_letters = {
     "Stowers Demand Letter": "stowers_demand_letter",
     "General Demand Letter": "demand_letter",
@@ -57,86 +65,90 @@ demand_letters = {
     "Dog Bite Demand Letter": "dog_bite_demand_letter"
 }
 
-# Insurance Category
 insurance_docs = {
     "Letter of Representation": "letter_of_representation",
     "Uninsured/Underinsured Letter of Representation": "um_uim_letter_of_representation"
 }
 
-# Medical Category
 medical_docs = {
     "Letter of Protection": "letter_of_protection"
 }
 
-# Miscellaneous Templates
 misc_templates = {
     "Medical Records Request": "medical_records_request",
     "Third Party Spoliation Letter": "third_party_spoliation_letter"
 }
 
-# --- UI Starts Here ---
+# --- Streamlit UI ---
+
 st.title("Legal Document Automation")
 
-# Document Category Selector
 selected_doc_category = st.selectbox(
     "Choose Document Category:",
     ["Petitions", "Discovery", "Demand Letters", "Insurance", "Medical"]
 )
 
-# PETITION SECTION
 if selected_doc_category == "Petitions":
-    selected_petition_doc = st.selectbox(
-        "Select Petition Template:",
-        list(petition_doc_map.keys())
-    )
+    selected_petition_doc = st.selectbox("Select Petition Template:", list(petition_doc_map.keys()))
     selected_template_key = petition_doc_map[selected_petition_doc]
 
-# DISCOVERY SECTION
 elif selected_doc_category == "Discovery":
     selected_discovery_doc = st.selectbox(
         "Select Discovery Document:",
-        [
-            "Plaintiff's Initial Disclosures",
-            "Plaintiff's Interrogatories",
-            "Plaintiff's Request for Admissions",
-            "Plaintiff's Request for Production",
-            "Plaintiff's Request for Disclosures",
-            "Answer to Interrogatories",
-            "Answer to Request for Admissions",
-            "Answer to Request for Production",
-            "Answer to Request for Disclosures"
-        ]
+        list(discovery_doc_map.keys())
     )
     selected_template_key = discovery_doc_map[selected_discovery_doc]
 
-# DEMAND LETTERS SECTION
 elif selected_doc_category == "Demand Letters":
-    selected_demand_doc = st.selectbox(
-        "Select Demand Letter Type:",
-        list(demand_letters.keys())
-    )
+    selected_demand_doc = st.selectbox("Select Demand Letter Type:", list(demand_letters.keys()))
     selected_template_key = demand_letters[selected_demand_doc]
 
-# INSURANCE SECTION
 elif selected_doc_category == "Insurance":
-    selected_insurance_doc = st.selectbox(
-        "Select Insurance Document:",
-        list(insurance_docs.keys())
-    )
+    selected_insurance_doc = st.selectbox("Select Insurance Document:", list(insurance_docs.keys()))
     selected_template_key = insurance_docs[selected_insurance_doc]
 
-# MEDICAL SECTION
 elif selected_doc_category == "Medical":
-    selected_medical_doc = st.selectbox(
-        "Select Medical Document:",
-        list(medical_docs.keys())
-    )
+    selected_medical_doc = st.selectbox("Select Medical Document:", list(medical_docs.keys()))
     selected_template_key = medical_docs[selected_medical_doc]
 
-# Load the selected template and show confirmation
+# Load and modify the document
 doc = load_template(selected_template_key)
 if doc:
-    st.write(f"\n📝 Loaded template: `{selected_template_key}.docx`")
+    st.write(f"📝 Loaded template: `{selected_template_key}.docx`")
+
+    st.subheader("🔁 Fill Placeholders")
+    client_name = st.text_input("Client Name")
+    date_of_accident = st.date_input("Date of Accident")
+    attorney_name = st.text_input("Attorney Name")
+
+    # Optional GPT section generation
+    factual_background = ""
+    venue_text = ""
+
+    if st.checkbox("✍️ Generate Factual Background via GPT"):
+        facts = st.text_area("Enter case facts:")
+        if st.button("Generate Factual Background"):
+            factual_background = generate_gpt_section("Factual Background", facts)
+            st.text_area("Generated Factual Background", factual_background, height=200)
+
+    if st.checkbox("✍️ Generate Venue & Jurisdiction via GPT"):
+        venue_input = st.text_area("Describe venue and location context:")
+        if st.button("Generate Venue Section"):
+            venue_text = generate_gpt_section("Venue & Jurisdiction", venue_input)
+            st.text_area("Generated Venue Section", venue_text, height=200)
+
+    if st.button("Generate Final Document"):
+        replacements = {
+            "[CLIENT_NAME]": client_name,
+            "[DATE_OF_ACCIDENT]": date_of_accident.strftime("%B %d, %Y"),
+            "[ATTORNEY_NAME]": attorney_name,
+            "[FACTUAL_BACKGROUND]": factual_background,
+            "[VENUE]": venue_text
+        }
+        filled_doc = fill_placeholders(doc, replacements)
+        st.success("✅ Document generated with all placeholders filled.")
+        download_docx(filled_doc, f"{selected_template_key}_final.docx")
+
 
 
 
