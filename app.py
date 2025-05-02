@@ -228,11 +228,18 @@ with st.expander("📍 Venue & Jurisdiction Generator (optional override)"):
 
         if st.button("🔨 Generate Final Document"):
             filled_doc = fill_placeholders(doc, replacements)
+            st.session_state["filled_doc"] = filled_doc  # store it so it persists
             st.success("✅ Document filled with placeholder values.")
+
+        # Show preview and download options if document is stored
+        if "filled_doc" in st.session_state:
             if st.button("📄 Preview Document Text"):
-                preview = "\n".join(p.text for p in filled_doc.paragraphs)
+                preview = "\n".join(p.text for p in st.session_state["filled_doc"].paragraphs)
                 st.text_area("Document Preview", preview, height=400)
-            download_docx(filled_doc, f"{selected_template_key}_final.docx")
+
+            # ✅ This will always show when document is ready
+            download_docx(st.session_state["filled_doc"], f"{selected_template_key}_final.docx")
+
 
 
 
