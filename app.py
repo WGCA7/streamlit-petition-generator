@@ -52,65 +52,95 @@ if st.session_state["authenticated"]:
                         return comp.get("long_name")
         return None
 
-    TEMPLATE_MAP = {
-        "Petitions": {
-            "MVA – 1 Defendant": "petition_mva_1def.docx",
-            "MVA – 2 Defendants": "petition_mva_2def.docx",
-            "Premises Liability": "petition_premises.docx"
-        },
-        "Discovery Responses": {
-            "Requests for Admission (RFAs)": "rfa_response.docx",
-            "Requests for Production (RFPs)": "rfp_response.docx",
-            "Interrogatories (ROGs)": "rog_response.docx"
-        },
-        "Demand & Settlement": {
-            "Demand Letter": "demand_letter.docx",
-            "Settlement Breakdown": "settlement_breakdown.docx"
-        },
-        "Medical Documents": {
-            "Letter of Protection (LOP)": "lop_template.docx"
-        },
-        "Insurance Communications": {
-            "Letter of Representation (LOR)": "lor.docx"
+    st.header("Document Automation Portal")
+    section = st.selectbox("Choose Function", ["Discovery Drafting & Responses", "Petition & Template Generator"])
+
+    if section == "Discovery Drafting & Responses":
+        doc_type = st.radio("Are you drafting requests or answering requests?", ["Answering OC Requests", "Drafting Our Requests"])
+        uploaded_file = st.file_uploader("Upload Discovery Document (.docx)", type=["docx"])
+        case_id = st.text_input("Enter CasePeer Case ID:")
+
+        if uploaded_file and case_id:
+            discovery_doc = Document(uploaded_file)
+            case_url = f"https://api.casepeer.com/v1/cases/{case_id}"
+            response = requests.get(case_url, headers=HEADERS)
+
+            case_data = response.json() if response.status_code == 200 else {}
+            case_facts = f"Case details: {case_data}. Use this information when crafting your response."
+
+            output_doc = Document()
+            if doc_type == "Answering OC Requests":
+                output_doc.add_heading("Plaintiff's Responses to Defendant's Discovery Requests", 0)
+            else:
+                output_doc.add_heading("Plaintiff's Discovery Requests to Defendant", 0)
+
+            for para in discovery_doc.paragraphs:
+                if para.text.strip():
+                    prefix = "[RFA]" if "admit" in para.text.lower() else "[ROG]" if "describe" in para.text.lower() or "explain" in para.text.lower() else "[RFP]" if "produce" in para.text.lower() or "documents" in para.text.lower() else "[DISCOVERY]"
+
+                    if doc_type == "Answering OC Requests":
+                        prompt = f"Respond to the following {prefix} based on the facts of a Texas personal injury case: '{para.text.strip()}'. {case_facts}"
+                        system_role = "You are a Texas litigation paralegal drafting discovery responses."
+                    else:
+                        prompt = f"Draft a well-phrased {prefix} for a Texas personal injury case that covers: '{para.text.strip()}'. {case_facts}"
+                        system_role = "You are a Texas litigation paralegal drafting discovery requests."
+
+                    try:
+                        ai_response = openai.ChatCompletion.create(
+                            model="gpt-4",
+                            messages=[
+                                {"role": "system", "content": system_role},
+                                {"role": "user", "content": prompt}
+                            ]
+                        )
+                        answer = ai_response['choices'][0]['message']['content']
+                        output_doc.add_paragraph(f"{prefix} {para.text.strip()}", style='List Number')
+                        output_doc.add_paragraph(f"{answer}")
+                    except Exception as e:
+                        output_doc.add_paragraph(f"{prefix} {para.text.strip()}", style='List Number')
+                        output_doc.add_paragraph(f"[Error generating response: {str(e)}]")
+
+            output_buffer = BytesIO()
+            output_doc.save(output_buffer)
+            output_buffer.seek(0)
+
+            file_label = "responses" if doc_type == "Answering OC Requests" else "requests"
+            st.download_button(
+                f"Download Discovery {file_label.title()} as Word Document",
+                data=output_buffer,
+                file_name=f"discovery_{file_label}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
+
+    elif section == "Petition & Template Generator":
+        st.subheader("Generate Petition or Other Template-Based Document")
+        TEMPLATE_MAP = {
+            "Petitions": {
+                "MVA – 1 Defendant": "petition_mva_1def.docx",
+                "MVA – 2 Defendants": "petition_mva_2def.docx",
+                "Premises Liability": "petition_premises.docx"
+            },
+            "Medical": {
+                "Letter of Protection (LOP)": "lop_template.docx"
+            },
+            "Insurance": {
+                "Letter of Representation (LOR)": "lor.docx"
+            }
         }
-    }
 
-    category = st.selectbox("Choose Document Category", list(TEMPLATE_MAP.keys()))
-    doc_type = st.selectbox("Choose Document Type", list(TEMPLATE_MAP[category].keys()))
-    template_path = Path(__file__).parent / "templates" / TEMPLATE_MAP[category][doc_type]
+        category = st.selectbox("Choose Document Category", list(TEMPLATE_MAP.keys()))
+        doc_type = st.selectbox("Choose Document Type", list(TEMPLATE_MAP[category].keys()))
+        template_path = Path("templates") / TEMPLATE_MAP[category][doc_type]
 
-    case_id = st.text_input("Enter CasePeer Case ID:")
-    if case_id:
-        case_url = f"https://api.casepeer.com/v1/cases/{case_id}"
-        response = requests.get(case_url, headers=HEADERS)
+        case_id = st.text_input("Enter CasePeer Case ID for Template Generation:")
 
-        if response.status_code == 200:
-            case = response.json()
-            st.success("Case retrieved successfully. Template ready to fill.")
-            st.write(f"You selected: {doc_type}")
-
-            # Fetch treatments for LOP
-            provider_name = ""
-            provider_address = ""
-            if doc_type == "Letter of Protection (LOP)":
-                treatment_url = f"https://api.casepeer.com/v1/cases/{case_id}/treatments"
-                treatment_response = requests.get(treatment_url, headers=HEADERS)
-                if treatment_response.status_code == 200:
-                    treatments = treatment_response.json()
-                    provider_names = list(set(t["provider_name"] for t in treatments if "provider_name" in t))
-                    selected_provider = st.selectbox("Select Provider for LOP", provider_names)
-                    provider_name = selected_provider
-                    for t in treatments:
-                        if t.get("provider_name") == selected_provider:
-                            provider_address = t.get("provider_address", "")
-                            break
-                else:
-                    st.warning("Unable to retrieve provider list.")
+        if case_id:
+            case_url = f"https://api.casepeer.com/v1/cases/{case_id}"
+            response = requests.get(case_url, headers=HEADERS)
+            case = response.json() if response.status_code == 200 else {}
 
             defendant_address = case.get("defendant", {}).get("address")
             inferred_county = get_county_from_address(defendant_address)
-
-            # Fallback to incident address if defendant county not found
             if not inferred_county:
                 incident_address = case.get("incident_address") or case.get("incident", {}).get("address")
                 inferred_county = get_county_from_address(incident_address)
@@ -121,51 +151,49 @@ if st.session_state["authenticated"]:
                 "«FactualBackground»": "",
                 "«VenueParagraph»": "",
                 "«RepresentationReason»": "",
-                "«ProviderName»": provider_name or "[PROVIDER]",
-                "«ProviderAddress»": provider_address or "[ADDRESS]",
-                "«DateGenerated»": datetime.today().strftime('%B %d, %Y'),
-                "«DefendantCounty»": inferred_county or "[COUNTY]"
+                "«DefendantCounty»": inferred_county or "[COUNTY]",
+                "«DateGenerated»": datetime.today().strftime('%B %d, %Y')
             }
 
             try:
-                background_prompt = f"Generate a factual background paragraph for a personal injury case with the following details: {case}"
-                background_response = openai.ChatCompletion.create(
+                background_prompt = f"Generate a factual background paragraph for a Texas personal injury case using this data: {case}"
+                response = openai.ChatCompletion.create(
                     model="gpt-4",
                     messages=[
                         {"role": "system", "content": "You are a legal drafting assistant."},
                         {"role": "user", "content": background_prompt}
                     ]
                 )
-                placeholders["«FactualBackground»"] = background_response['choices'][0]['message']['content']
+                placeholders["«FactualBackground»"] = response['choices'][0]['message']['content']
             except Exception as e:
-                st.warning(f"GPT generation failed for Factual Background: {e}")
+                st.warning(f"Factual background error: {e}")
 
             try:
-                venue_prompt = f"Draft a jurisdiction and venue paragraph for a Texas personal injury case using this county: {inferred_county}, and these case details: {case}"
-                venue_response = openai.ChatCompletion.create(
+                venue_prompt = f"Draft a venue paragraph for a Texas personal injury case. County: {inferred_county}. Case details: {case}"
+                response = openai.ChatCompletion.create(
                     model="gpt-4",
                     messages=[
                         {"role": "system", "content": "You are a legal drafting assistant."},
                         {"role": "user", "content": venue_prompt}
                     ]
                 )
-                placeholders["«VenueParagraph»"] = venue_response['choices'][0]['message']['content']
+                placeholders["«VenueParagraph»"] = response['choices'][0]['message']['content']
             except Exception as e:
-                st.warning(f"GPT generation failed for Venue Paragraph: {e}")
+                st.warning(f"Venue paragraph error: {e}")
 
             if doc_type == "Letter of Representation (LOR)":
                 try:
-                    lor_prompt = f"Draft a short paragraph for a Letter of Representation sent to an insurer in a personal injury case. Use the following details: {case}"
-                    lor_response = openai.ChatCompletion.create(
+                    lor_prompt = f"Draft a short Letter of Representation based on: {case}"
+                    response = openai.ChatCompletion.create(
                         model="gpt-4",
                         messages=[
                             {"role": "system", "content": "You are a legal assistant drafting insurance correspondence."},
                             {"role": "user", "content": lor_prompt}
                         ]
                     )
-                    placeholders["«RepresentationReason»"] = lor_response['choices'][0]['message']['content']
+                    placeholders["«RepresentationReason»"] = response['choices'][0]['message']['content']
                 except Exception as e:
-                    st.warning(f"GPT generation failed for LOR content: {e}")
+                    st.warning(f"LOR generation error: {e}")
 
             doc = Document(template_path)
             for para in doc.paragraphs:
@@ -176,7 +204,6 @@ if st.session_state["authenticated"]:
             buffer = BytesIO()
             doc.save(buffer)
             buffer.seek(0)
-
             st.download_button(
                 label="Download Completed Document",
                 data=buffer,
@@ -184,7 +211,5 @@ if st.session_state["authenticated"]:
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
 
-        else:
-            st.error("Failed to retrieve case. Check Case ID or API key.")
 
 
