@@ -1,27 +1,44 @@
 import streamlit as st
+from docx import Document
+import os
+
+# --- Utility Functions ---
+
+def load_template(template_name):
+    return Document(os.path.join("templates", f"{template_name}.docx"))
+
+def fill_placeholders(doc, replacements):
+    for p in doc.paragraphs:
+        for key, val in replacements.items():
+            if key in p.text:
+                p.text = p.text.replace(key, val)
+    return doc
+
+def generate_gpt_section(prompt, context):
+    # Placeholder for GPT content generation
+    return f"[Generated Content for: {prompt}]"
 
 # --- Mapping dictionaries ---
 
 # Petition document map
 petition_doc_map = {
-    "Standard Personal Injury Petition": "standard_personal_injury_petition",
-    "Motor Vehicle Accident Petition": "motor_vehicle_accident_petition",
-    "Premises Liability Petition": "premises_liability_petition",
-    "Wrongful Death Petition": "wrongful_death_petition",
-    "Dog Bite Petition": "dog_bite_petition",
-    "Assault Petition": "assault_petition",
-    "Medical Malpractice Petition": "medical_malpractice_petition"
+    "MVA - 1 Defendant Original Petition": "mva_1_defendant_original_petition",
+    "MVA - 2 Defendants Original Petition": "mva_2_defendants_original_petition",
+    "Premises Liability Original Petition": "premises_liability_original_petition",
+    "Wrongful Death Original Petition": "wrongful_death_original_petition",
+    "Dog Bite Original Petition": "dog_bite_original_petition",
+    "Medical Malpractice Original Petition": "medical_malpractice_original_petition"
 }
 
 # Discovery document map
 discovery_doc_map = {
     "Plaintiff's Initial Disclosures": "initial_disclosures",
-    "Plaintiff's Request for Admissions": "request_for_admissions",
     "Plaintiff's Interrogatories": "interrogatories",
+    "Plaintiff's Request for Admissions": "request_for_admissions",
     "Plaintiff's Request for Production": "request_for_production",
     "Plaintiff's Request for Disclosures": "request_for_disclosures",
-    "Answer to Request for Admissions": "answer_to_request_for_admissions",
     "Answer to Interrogatories": "answer_to_interrogatories",
+    "Answer to Request for Admissions": "answer_to_request_for_admissions",
     "Answer to Request for Production": "answer_to_request_for_production",
     "Answer to Request for Disclosures": "answer_to_request_for_disclosures"
 }
@@ -71,33 +88,20 @@ if selected_function == "Petition":
 
 # DISCOVERY SECTION
 elif selected_doc_category == "Discovery":
-    discovery_type = st.radio(
-        "Select Discovery Task:",
-        ["Answering Opposing Counsel Requests", "Drafting Our Requests"]
+    selected_discovery_doc = st.selectbox(
+        "Select Discovery Document:",
+        [
+            "Plaintiff's Initial Disclosures",
+            "Plaintiff's Interrogatories",
+            "Plaintiff's Request for Admissions",
+            "Plaintiff's Request for Production",
+            "Plaintiff's Request for Disclosures",
+            "Answer to Interrogatories",
+            "Answer to Request for Admissions",
+            "Answer to Request for Production",
+            "Answer to Request for Disclosures"
+        ]
     )
-
-    if discovery_type == "Answering Opposing Counsel Requests":
-        selected_discovery_doc = st.selectbox(
-            "Select Discovery Document to Answer:",
-            [
-                "Answer to Request for Admissions",
-                "Answer to Interrogatories",
-                "Answer to Request for Production",
-                "Answer to Request for Disclosures"
-            ]
-        )
-    else:
-        selected_discovery_doc = st.selectbox(
-            "Select Discovery Document to Draft:",
-            [
-                "Plaintiff's Initial Disclosures",
-                "Plaintiff's Request for Admissions",
-                "Plaintiff's Interrogatories",
-                "Plaintiff's Request for Production",
-                "Plaintiff's Request for Disclosures"
-            ]
-        )
-
     selected_template_key = discovery_doc_map[selected_discovery_doc]
 
 # TEMPLATE GENERATOR SECTION
@@ -121,9 +125,10 @@ elif selected_function == "Template Generator":
         )
         selected_template_key = demand_letters[selected_demand_doc]
 
-# Load the selected template (placeholder logic)
-st.write(f"\n📝 You selected template: `{selected_template_key}`")
-# template = load_template(f"{selected_template_key}.docx")  # Replace this with your document logic
+# Load the selected template and show confirmation
+doc = load_template(selected_template_key)
+st.write(f"\n📝 Loaded template: `{selected_template_key}.docx`")
+
 
 
 
