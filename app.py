@@ -225,28 +225,28 @@ with st.expander("📍 Venue & Jurisdiction Generator (optional override)"):
         st.text_area("Generated Venue & Jurisdiction", venue_narrative, height=200)
         replacements["[VENUE_AND_JURISDICTION]"] = venue_narrative
 
+# --- Final Document Generator ---
+if st.button("🔨 Generate Final Document"):
+    filled_doc = fill_placeholders(doc, replacements)
+    st.session_state["filled_doc"] = filled_doc
+    st.success("✅ Document filled with placeholder values.")
 
-        # --- Final Document Generator ---
-        if st.button("🔨 Generate Final Document"):
-            filled_doc = fill_placeholders(doc, replacements)
-            st.session_state["filled_doc"] = filled_doc
-            st.success("✅ Document filled with placeholder values.")
+# --- Show Preview + Download if Doc is Filled ---
+if "filled_doc" in st.session_state:
+    if st.button("📄 Preview Document Text"):
+        preview = "\n".join(p.text for p in st.session_state["filled_doc"].paragraphs)
+        st.text_area("Document Preview", preview, height=400)
 
-        # --- Show Preview + Download if Doc is Filled ---
-        if "filled_doc" in st.session_state:
-            if st.button("📄 Preview Document Text"):
-                preview = "\n".join(p.text for p in st.session_state["filled_doc"].paragraphs)
-                st.text_area("Document Preview", preview, height=400)
+    # ✅ DOWNLOAD BUTTON
+    buffer = BytesIO()
+    st.session_state["filled_doc"].save(buffer)
+    st.download_button(
+        label="📥 Download Final Document",
+        data=buffer.getvalue(),
+        file_name=f"{selected_template_key}_final.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
 
-            # ✅ DOWNLOAD BUTTON
-            buffer = BytesIO()
-            st.session_state["filled_doc"].save(buffer)
-            st.download_button(
-                label="📥 Download Final Document",
-                data=buffer.getvalue(),
-                file_name=f"{selected_template_key}_final.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            )
 
 
 
