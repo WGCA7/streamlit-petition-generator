@@ -52,7 +52,7 @@ requests_doc_map = {
 }
 
 answers_doc_map = {
-    "Plaintiff’s Response to Defendant’s Request for Disclosures": "answer_to_request_for_disclosures"
+    "Plaintiff’s Response to Defendant’s Request for Disclosures": "answer_to_request_for_disclosures",
     "Answer to Interrogatories": "answer_to_interrogatories",
     "Answer to Request for Admissions": "answer_to_request_for_admissions",
     "Answer to Request for Production": "answer_to_request_for_production",
