@@ -224,8 +224,8 @@ with st.expander("📍 Venue & Jurisdiction Generator (optional override)"):
                         st.session_state["gpt_sections"][placeholder],
                         height=200,
                         key=f"out_{placeholder}"
-            )
-            replacements[placeholder] = st.session_state["gpt_sections"][placeholder]
+                    )
+                    replacements[placeholder] = st.session_state["gpt_sections"][placeholder]
 
         if st.button("🔨 Generate Final Document"):
             filled_doc = fill_placeholders(doc, replacements)
