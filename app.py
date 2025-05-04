@@ -95,11 +95,7 @@ last_name = st.text_input("Client Last Name")
 if st.button("🔍 Search Clients"):
     if case_id:
         try:
-            st.write("🔄 Sending name-based search to Zapier...")
-            response = requests.post(zapier_url, json=search_payload)
-            st.write("🔁 Status Code:", response.status_code)
-            st.write("🔁 Response Body:", response.text)
-
+            response = requests.post(zapier_url, json={"case_id": case_id})
             if response.status_code == 200:
                 st.success("✅ Case ID sent to Zapier successfully. Awaiting CasePeer data...")
             else:
@@ -111,16 +107,24 @@ if st.button("🔍 Search Clients"):
     else:
         search_payload = {"first_name": first_name, "last_name": last_name}
         try:
+            st.write("🔄 Sending name-based search to Zapier...")
+            st.write("🔄 Sending name-based search to Zapier...")
             response = requests.post(zapier_url, json=search_payload)
+            st.write("🔁 Status Code:", response.status_code)
+            st.write("🔁 Response Body:", response.text)
             if response.status_code == 200:
-                results = response.json().get("matches", [])
+                try:
+                    json_data = response.json()
+                    st.write("🧪 Full JSON:", json_data)
+                    results = json_data.get("matches", [])
+                except Exception as e:
+                    st.error(f"❌ Failed to parse JSON: {e}")
+                    results = []
                 if results:
                     for idx, client in enumerate(results):
                         st.markdown(f"**{client['full_name']}**")
                         st.markdown(f"- Accident Type: {client['accident_type']}")
                         st.markdown(f"- Accident Date: {client['accident_date']}")
-                        st.markdown(f"- DOB: {client.get('dob', 'Not provided')}")
-
                         if st.button(f"Select This Client", key=f"select_{idx}"):
                             selected_case_id = client["case_id"]
                             try:
