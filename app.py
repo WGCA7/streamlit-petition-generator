@@ -351,6 +351,16 @@ if __name__ == "__main__":
 def load_template(template_name):
     
  # --- Final Document Generation and Download ---
+
+
+   
+    path = os.path.join("templates", f"{template_name}.docx")
+    if not os.path.exists(path):
+        st.error(f"❌ Template not found: {template_name}.docx")
+        return None
+    return Document(path)
+
+
 if selected_template_key:
     webhook_data = st.session_state.get("webhook_data", {})
     buffer = generate_final_document(selected_template_key, webhook_data)
@@ -366,32 +376,6 @@ if selected_template_key:
         file_name=f"{selected_template_key}_final.docx",
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
-
-   
-    path = os.path.join("templates", f"{template_name}.docx")
-    if not os.path.exists(path):
-        st.error(f"❌ Template not found: {template_name}.docx")
-        return None
-    return Document(path)
-
-
-if selected_template_key:
-    buffer = generate_final_document(
-    selected_template_key,
-    st.session_state.get("webhook_data", {})
-)
-        if st.button("📄 Preview Document Text"):
-            preview = "\n".join(p.text for p in filled_doc.paragraphs)
-
-            st.text_area("Document Preview", preview, height=400)
-
-        buffer = BytesIO()
-        filled_doc.save(buffer)
-        st.download_button(
-            label="📥 Download Final Document",
-            data=buffer.getvalue(),
-            file_name=f"{selected_template_key}_final.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
 # (To be added next message due to size constraints)
 
