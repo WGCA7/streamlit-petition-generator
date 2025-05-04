@@ -97,7 +97,6 @@ if st.button("🔍 Search Clients"):
             response = requests.post(zapier_url, json={"case_id": case_id})
             if response.status_code == 200:
                 st.success("✅ Case ID sent to Zapier. Awaiting CasePeer data...")
-                st.write(response.json())  # Debug: show response from Zapier
             else:
                 st.error(f"❌ Failed to send case ID. Status code: {response.status_code}")
         except Exception as e:
@@ -109,7 +108,6 @@ if st.button("🔍 Search Clients"):
             response = requests.post(zapier_url, json={"first_name": first_name, "last_name": last_name})
             if response.status_code == 200:
                 st.success("✅ Name-based request sent. Reload shortly to fetch data.")
-                st.write(response.json())  # Debug: show response from Zapier
             else:
                 st.error("❌ Name search failed.")
         except Exception as e:
@@ -128,7 +126,6 @@ if st.button("🔄 Reload Webhook Data"):
             if "error" not in webhook_data:
                 st.session_state["webhook_data"] = webhook_data
                 st.success("✅ Webhook data refreshed.")
-                st.write(webhook_data)  # Debug: show webhook data
             else:
                 st.warning("⚠️ No data found in webhook.")
         else:
@@ -238,6 +235,7 @@ if selected_template_key:
         st.error(f"❌ Error generating document: {e}")
 else:
     st.info("⚠️ Please select a document template from above.")
+
 
 
 
