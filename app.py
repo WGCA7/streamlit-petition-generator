@@ -163,7 +163,13 @@ st.session_state["webhook_data"] = webhook_data
 replacements = {}
 
 def get_prefill_value(key, default=""):
-    return st.session_state["webhook_data"].get(key, default)
+    data = st.session_state.get("webhook_data", {})
+    
+    # If it's from a "clients" array, grab the first client
+    if isinstance(data, dict) and "clients" in data:
+        if isinstance(data["clients"], list) and data["clients"]:
+            return data["clients"][0].get(key, default)
+    return data.get(key, default)
 
 def load_template(template_name):
     path = os.path.join("templates", f"{template_name}.docx")
