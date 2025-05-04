@@ -1,10 +1,93 @@
 import streamlit as st
-from docx import Document
+import requests
+import json
 import os
-from io import BytesIO
 import re
+from docx import Document
+from io import BytesIO
 
-# --- Placeholder Schema ---
+# --- Zapier Trigger UI ---
+st.title("📄 Legal Document Automation")
+
+st.markdown("Enter the Case ID below to pull the client info via Zapier and CasePeer.")
+
+zapier_url = "https://hooks.zapier.com/hooks/catch/abc123/xyz456"  # Replace with your real Zapier Catch Hook
+case_id = st.text_input("Enter Case ID to Pull from CasePeer")
+
+if st.button("📤 Send Case ID to Zapier"):
+    if case_id:
+        response = requests.post(zapier_url, json={"case_id": case_id})
+        if response.status_code == 200:
+            st.success("✅ Case ID sent to Zapier successfully. Awaiting CasePeer data...")
+        else:
+            st.error(f"❌ Failed to send case ID. Status code: {response.status_code}")
+    else:
+        st.warning("⚠️ Please enter a Case ID before sending.")
+
+# --- New: Client Search UI ---
+st.subheader("🔎 Search for Client by Name")
+
+first_name = st.text_input("Client First Name")
+last_name = st.text_input("Client Last Name")
+
+if st.button("🔍 Search Clients"):
+    if not first_name or not last_name:
+        st.warning("Please enter both first and last name.")
+    else:
+        search_payload = {
+            "first_name": first_name,
+            "last_name": last_name
+        }
+        response = requests.post(zapier_url, json=search_payload)
+        if response.status_code == 200:
+            results = response.json().get("matches", [])  # assuming Zapier returns list in 'matches'
+            if results:
+                for idx, client in enumerate(results):
+                    st.markdown(f"**{client['full_name']}**")
+                    st.markdown(f"- Accident Type: {client['accident_type']}")
+                    st.markdown(f"- Accident Date: {client['accident_date']}")
+                    if st.button(f"Select This Client", key=f"select_{idx}"):
+                        selected_case_id = client["case_id"]
+                        response = requests.post(zapier_url, json={"case_id": selected_case_id})
+                        if response.status_code == 200:
+                            st.success(f"✅ Client selected. Case ID {selected_case_id} sent to Zapier.")
+                        else:
+                            st.error("❌ Failed to send case ID to Zapier.")
+            else:
+                st.info("No matching clients found.")
+        else:
+            st.error("❌ Error searching clients. Make sure the Zap is configured to handle name-based searches.")
+
+# --- Load Data from webhook JSON (if exists) ---
+webhook_data = {}
+data_path = "latest_webhook_data.json"
+if os.path.exists(data_path):
+    with open(data_path, "r") as f:
+        try:
+            webhook_data = json.load(f)
+            st.success("✅ Auto-fill data loaded from webhook.")
+        except json.JSONDecodeError:
+            st.warning("⚠️ Could not decode JSON from webhook file.")
+
+st.session_state["webhook_data"] = webhook_data
+
+def get_prefill_value(key, default=""):
+    return st.session_state["webhook_data"].get(key, default)
+
+def load_template(template_name):
+    path = os.path.join("templates", f"{template_name}.docx")
+    if not os.path.exists(path):
+        st.error(f"❌ Template not found: {template_name}.docx")
+        return None
+    return Document(path)
+
+def fill_placeholders(doc, replacements):
+    for p in doc.paragraphs:
+        for key, val in replacements.items():
+            if key in p.text:
+                p.text = p.text.replace(key, val)
+    return doc
+
 PLACEHOLDER_SCHEMA = {
     "Client Info": {
         "[CLIENT_NAME]": "Client Name",
@@ -41,7 +124,7 @@ PLACEHOLDER_SCHEMA = {
     }
 }
 
-# --- GPT Section Prompts ---
+# --- GPT Section Generator ---
 GPT_SECTION_PROMPTS = {
     "[FACTUAL_BACKGROUND]": {
         "label": "Factual Background",
@@ -61,30 +144,67 @@ GPT_SECTION_PROMPTS = {
     }
 }
 
-# --- Utility Functions ---
-def load_template(template_name):
-    path = os.path.join("templates", f"{template_name}.docx")
-    if not os.path.exists(path):
-        st.error(f"❌ Template not found: {template_name}.docx")
-        return None
-    return Document(path)
+with st.expander("🧠 AI Section Generator (Factual Background, Venue, Negligence, Prayer)"):
+    if "gpt_sections" not in st.session_state:
+        st.session_state["gpt_sections"] = {}
 
-def fill_placeholders(doc, replacements):
-    for p in doc.paragraphs:
-        for key, val in replacements.items():
-            if key in p.text:
-                p.text = p.text.replace(key, val)
-    return doc
+    for placeholder, meta in GPT_SECTION_PROMPTS.items():
+        st.markdown(f"### 📄 {meta['label']}")
+        context = st.text_area(f"Enter context for {meta['label']}:", key=f"ctx_{placeholder}")
 
-def download_docx(doc, filename):
-    buffer = BytesIO()
-    doc.save(buffer)
-    st.download_button(
-        label="📥 Download Final Document",
-        data=buffer.getvalue(),
-        file_name=filename,
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
+        if st.button(f"Generate {meta['label']}", key=f"btn_{placeholder}"):
+            result = f"[Generated GPT Section for {meta['label']}\n\n{context}]"
+            st.session_state["gpt_sections"][placeholder] = result
+
+        if placeholder in st.session_state["gpt_sections"]:
+            st.text_area(
+                f"🧠 Generated {meta['label']} Output",
+                st.session_state["gpt_sections"][placeholder],
+                height=200,
+                key=f"out_{placeholder}"
+            )
+            replacements[placeholder] = st.session_state["gpt_sections"][placeholder]
+
+# --- Venue & Jurisdiction Generator ---
+with st.expander("📍 Venue & Jurisdiction Generator (optional override)"):
+    venue_zip = st.text_input("Enter ZIP code of the accident location")
+    defendant_county = st.text_input("Enter county where Defendant resides (if known)")
+    defendant_principal_office = st.text_input("Enter county of Defendant's principal office (if applicable)")
+
+    def generate_venue_narrative(accident_county, def_county=None, office_county=None):
+        venue_bases = []
+        if accident_county:
+            venue_bases.append(f"under CPRC §15.002(a)(1) because a substantial part of the events giving rise to this lawsuit occurred in {accident_county} County")
+        if def_county:
+            venue_bases.append(f"under CPRC §15.002(a)(2) because the Defendant resides in {def_county} County")
+        if office_county:
+            venue_bases.append(f"under CPRC §15.002(a)(3) because the Defendant’s principal office is located in {office_county} County")
+        return f"Venue is proper in {accident_county} County, Texas, and also potentially " + "; ".join(venue_bases) + "."
+
+    if st.button("Generate Venue Narrative"):
+        accident_county = "Harris" if venue_zip == "77002" else "Unknown"
+        venue_narrative = generate_venue_narrative(
+            accident_county,
+            defendant_county,
+            defendant_principal_office
+        )
+        st.text_area("Generated Venue & Jurisdiction", venue_narrative, height=200)
+        replacements["[VENUE_AND_JURISDICTION]"] = venue_narrative
+
+# --- Fill Placeholders ---
+st.subheader("🔁 Fill Placeholders")
+replacements = {}
+for section, fields in PLACEHOLDER_SCHEMA.items():
+    with st.expander(f"📂 {section}"):
+        show_extra = True
+        if section == "Defendant Info":
+            show_extra = st.checkbox("Include Second Defendant?", key="show_def2")
+        for placeholder, label in fields.items():
+            if "DEFENDANT_2" in placeholder and not st.session_state.get("show_def2", False):
+                continue
+            default_val = get_prefill_value(label.lower().replace(" ", "_"))
+            value = st.text_input(label, value=default_val, key=placeholder)
+            replacements[placeholder] = value
 
 # --- Template Maps ---
 petition_doc_map = {
@@ -128,9 +248,8 @@ medical_docs = {
     "Letter of Protection": "letter_of_protection"
 }
 
-# --- Streamlit UI ---
-st.title("📄 Legal Document Automation")
-
+# --- Document Category Selection ---
+st.subheader("📂 Document Type")
 selected_template_key = None
 selected_doc_category = st.selectbox(
     "Choose Document Category:",
@@ -158,94 +277,24 @@ elif selected_doc_category == "Medical":
     selected_medical_doc = st.selectbox("Select Medical Document:", list(medical_docs.keys()))
     selected_template_key = medical_docs[selected_medical_doc]
 
-# --- Load Template and UI Logic ---
+# --- Load Template & Generate Final Document ---
 if selected_template_key:
     doc = load_template(selected_template_key)
     if doc:
-        st.success(f"📝 Loaded: `{selected_template_key}.docx`")
+        filled_doc = fill_placeholders(doc, replacements)
+        if st.button("📄 Preview Document Text"):
+            preview = "\n".join(p.text for p in filled_doc.paragraphs)
+            st.text_area("Document Preview", preview, height=400)
 
-        st.subheader("🔁 Fill Placeholders")
-        replacements = {}
-        for section, fields in PLACEHOLDER_SCHEMA.items():
-            with st.expander(f"📂 {section}"):
-                show_extra = True
-                if section == "Defendant Info":
-                    show_extra = st.checkbox("Include Second Defendant?", key="show_def2")
-                for placeholder, label in fields.items():
-                    if "DEFENDANT_2" in placeholder and not st.session_state.get("show_def2", False):
-                        continue
-                    value = st.text_input(label, key=placeholder)
-                    replacements[placeholder] = value
-                    # --- AI Section Generator ---
-        with st.expander("🧠 AI Section Generator (Factual Background, Venue, Negligence, Prayer)"):
-            if "gpt_sections" not in st.session_state:
-                st.session_state["gpt_sections"] = {}
-
-            for placeholder, meta in GPT_SECTION_PROMPTS.items():
-                st.markdown(f"### 📄 {meta['label']}")
-                context = st.text_area(f"Enter context for {meta['label']}:", key=f"ctx_{placeholder}")
-
-                if st.button(f"Generate {meta['label']}", key=f"btn_{placeholder}"):
-                    result = f"[Generated GPT Section for: {meta['label']}\n\n{context}]"
-                    st.session_state["gpt_sections"][placeholder] = result
-
-                if placeholder in st.session_state["gpt_sections"]:
-                    st.text_area(
-                        f"🧠 Generated {meta['label']} Output",
-                        st.session_state["gpt_sections"][placeholder],
-                        height=200,
-                        key=f"out_{placeholder}"
-                    )
-                    replacements[placeholder] = st.session_state["gpt_sections"][placeholder]
-
-
-        # --- Venue & Jurisdiction Generator ---
-with st.expander("📍 Venue & Jurisdiction Generator (optional override)"):
-    venue_zip = st.text_input("Enter ZIP code of the accident location")
-    defendant_county = st.text_input("Enter county where Defendant resides (if known)")
-    defendant_principal_office = st.text_input("Enter county of Defendant's principal office (if applicable)")
-
-    def generate_venue_narrative(accident_county, def_county=None, office_county=None):
-        venue_bases = []
-        if accident_county:
-            venue_bases.append(f"under CPRC §15.002(a)(1) because a substantial part of the events giving rise to this lawsuit occurred in {accident_county} County")
-        if def_county:
-            venue_bases.append(f"under CPRC §15.002(a)(2) because the Defendant resides in {def_county} County")
-        if office_county:
-            venue_bases.append(f"under CPRC §15.002(a)(3) because the Defendant’s principal office is located in {office_county} County")
-        return f"Venue is proper in {accident_county} County, Texas, and also potentially " + "; ".join(venue_bases) + "."
-
-    if st.button("Generate Venue Narrative"):
-        accident_county = "Harris" if venue_zip == "77002" else "Unknown"
-        venue_narrative = generate_venue_narrative(
-            accident_county,
-            defendant_county,
-            defendant_principal_office
+        buffer = BytesIO()
+        filled_doc.save(buffer)
+        st.download_button(
+            label="📥 Download Final Document",
+            data=buffer.getvalue(),
+            file_name=f"{selected_template_key}_final.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
-        st.text_area("Generated Venue & Jurisdiction", venue_narrative, height=200)
-        replacements["[VENUE_AND_JURISDICTION]"] = venue_narrative
 
-# --- Final Document Generator ---
-if st.button("🔨 Generate Final Document"):
-    filled_doc = fill_placeholders(doc, replacements)
-    st.session_state["filled_doc"] = filled_doc
-    st.success("✅ Document filled with placeholder values.")
-
-# --- Show Preview + Download if Doc is Filled ---
-if "filled_doc" in st.session_state:
-    if st.button("📄 Preview Document Text"):
-        preview = "\n".join(p.text for p in st.session_state["filled_doc"].paragraphs)
-        st.text_area("Document Preview", preview, height=400)
-
-    # ✅ DOWNLOAD BUTTON
-    buffer = BytesIO()
-    st.session_state["filled_doc"].save(buffer)
-    st.download_button(
-        label="📥 Download Final Document",
-        data=buffer.getvalue(),
-        file_name=f"{selected_template_key}_final.docx",
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
 
 
 
