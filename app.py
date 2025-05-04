@@ -97,6 +97,7 @@ if st.button("🔍 Search Clients"):
             response = requests.post(zapier_url, json={"case_id": case_id})
             if response.status_code == 200:
                 st.success("✅ Case ID sent to Zapier. Awaiting CasePeer data...")
+                st.write(response.json())  # Debug: show response from Zapier
             else:
                 st.error(f"❌ Failed to send case ID. Status code: {response.status_code}")
         except Exception as e:
@@ -108,6 +109,7 @@ if st.button("🔍 Search Clients"):
             response = requests.post(zapier_url, json={"first_name": first_name, "last_name": last_name})
             if response.status_code == 200:
                 st.success("✅ Name-based request sent. Reload shortly to fetch data.")
+                st.write(response.json())  # Debug: show response from Zapier
             else:
                 st.error("❌ Name search failed.")
         except Exception as e:
@@ -126,6 +128,7 @@ if st.button("🔄 Reload Webhook Data"):
             if "error" not in webhook_data:
                 st.session_state["webhook_data"] = webhook_data
                 st.success("✅ Webhook data refreshed.")
+                st.write(webhook_data)  # Debug: show webhook data
             else:
                 st.warning("⚠️ No data found in webhook.")
         else:
@@ -198,67 +201,6 @@ for section, fields in PLACEHOLDER_SCHEMA.items():
 # Store user-entered fields in session for backup
 st.session_state["manual_inputs"] = replacements
 
-# --- GPT Section Generator ---
-st.divider()
-GPT_SECTION_PROMPTS = {
-    "[FACTUAL_BACKGROUND]": {
-        "label": "Factual Background",
-        "prompt": "Draft a factual background section based on the following case facts:"
-    },
-    "[VENUE_AND_JURISDICTION]": {
-        "label": "Venue & Jurisdiction",
-        "prompt": "Explain the appropriate venue and jurisdiction for this case:"
-    },
-    "[NEGLIGENCE_ALLEGATIONS]": {
-        "label": "Negligence Allegations",
-        "prompt": "List the negligence allegations against the defendant:"
-    },
-    "[PRAYER]": {
-        "label": "Prayer for Relief",
-        "prompt": "Draft a standard prayer for relief in a personal injury petition:"
-    }
-}
-
-with st.expander("🧠 AI Section Generator (Factual Background, Venue, Negligence, Prayer)"):
-    if "gpt_sections" not in st.session_state:
-        st.session_state["gpt_sections"] = {}
-
-    for placeholder, meta in GPT_SECTION_PROMPTS.items():
-        context = st.text_area(f"✍️ {meta['label']} - Context:", key=f"ctx_{placeholder}")
-        if st.button(f"Generate {meta['label']}", key=f"gen_{placeholder}"):
-            result = f"[Generated Section for {meta['label']}]\n\n{context}"
-            st.session_state["gpt_sections"][placeholder] = result
-
-        if placeholder in st.session_state["gpt_sections"]:
-            st.text_area(
-                f"🧠 {meta['label']} Output",
-                st.session_state["gpt_sections"][placeholder],
-                height=200,
-                key=f"out_{placeholder}"
-            )
-
-# --- Venue & Jurisdiction Generator ---
-st.divider()
-with st.expander("📍 Venue & Jurisdiction Generator"):
-    venue_zip = st.text_input("ZIP code of accident (optional)")
-    defendant_county = st.text_input("Defendant residence county (optional)")
-    office_county = st.text_input("Defendant principal office county (optional)")
-
-    def generate_venue(acc_county, def_county, office_county):
-        parts = []
-        if acc_county:
-            parts.append(f"under CPRC §15.002(a)(1) because a substantial part of the events occurred in {acc_county} County")
-        if def_county:
-            parts.append(f"under §15.002(a)(2) because Defendant resides in {def_county} County")
-        if office_county:
-            parts.append(f"under §15.002(a)(3) because Defendant’s principal office is in {office_county} County")
-        return f"Venue is proper in {acc_county or '______'} County, Texas — " + "; ".join(parts) + "."
-
-    if st.button("Generate Venue Narrative"):
-        acc_county = "Harris" if venue_zip == "77002" else "Unknown"
-        result = generate_venue(acc_county, defendant_county, office_county)
-        st.text_area("Generated Venue Text", result, height=200)
-
 # --- Final Document Generation & Download ---
 st.divider()
 st.subheader("📥 Generate Final Document")
@@ -296,6 +238,7 @@ if selected_template_key:
         st.error(f"❌ Error generating document: {e}")
 else:
     st.info("⚠️ Please select a document template from above.")
+
 
 
 
