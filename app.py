@@ -230,7 +230,6 @@ with st.expander("🧠 AI Section Generator (Factual Background, Venue, Negligen
         if st.button(f"Generate {meta['label']}", key=f"btn_{placeholder}"):
             result = f"[Generated GPT Section for {meta['label']}\n\n{context}]"
 
-{context}]"
             st.session_state["gpt_sections"][placeholder] = result
 
         if placeholder in st.session_state["gpt_sections"]:
