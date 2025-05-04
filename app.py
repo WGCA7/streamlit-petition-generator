@@ -326,7 +326,8 @@ def scan_all_templates(template_dir="templates"):
     return all_placeholders
 
 # --- Final Document Generation (to use in Streamlit app) ---
-def generate_final_document(template_path, webhook_data):
+def generate_final_document(template_key, webhook_data):
+    template_path = os.path.join("templates", f"{template_key}.docx")
     doc = Document(template_path)
     replacements = generate_replacements_from_webhook(webhook_data)
     filled_doc = fill_placeholders(doc, replacements)
