@@ -282,8 +282,8 @@ if selected_template_key:
     if doc:
         filled_doc = fill_placeholders(doc, replacements)
         if st.button("📄 Preview Document Text"):
-            preview = "
-".join(p.text for p in filled_doc.paragraphs)
+            preview = "\n".join(p.text for p in filled_doc.paragraphs)
+
             st.text_area("Document Preview", preview, height=400)
 
         buffer = BytesIO()
