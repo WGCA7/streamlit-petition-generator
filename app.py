@@ -121,18 +121,30 @@ if st.button("🔍 Search Clients"):
                     st.write("🧪 Full JSON:", json_data)
                     results = json_data.get("clients", [])
 
+                    # fallback: attempt to load from file if nothing returned
+                    if not results and os.path.exists(data_path):
+                        with open(data_path, "r") as f:
+                            try:
+                                loaded_data = json.load(f)
+                                results = loaded_data.get("clients", [])
+                            except Exception as e:
+                                st.warning(f"⚠️ Could not load saved client data: {e}")
+
+
                     if not results and json_data.get("status") == "success":
                         st.warning("No data returned from Zapier directly — attempting to load from file...")
                         if os.path.exists(data_path):
                             with open(data_path, "r") as f:
-                                results = json.load(f)
+                                loaded_data = json.load(f)
+                                results = loaded_data.get("clients", [])
+
                 except Exception as e:
                     st.error(f"❌ Failed to parse JSON: {e}")
                     results = []
 
             if results:
                 for idx, client in enumerate(results):
-                    st.markdown(f"**{client['full_name']}**")
+                    st.markdown(f"**{client.get('client_name', 'Unnamed')
                     st.markdown(f"- Accident Type: {client['accident_type']}")
                     st.markdown(f"- Accident Date: {client['accident_date']}")
                     if st.button(f"Select This Client", key=f"select_{idx}"):
