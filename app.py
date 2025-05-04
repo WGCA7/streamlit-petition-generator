@@ -1,4 +1,6 @@
 import streamlit as st
+
+st.title("📄 Legal Document Automation")
 import requests
 import json
 import os
@@ -236,7 +238,7 @@ medical_docs = {
 }
 
 # --- Document Category Selection ---
-# (Moved above Client Search)
+# (Now at the top of the app)
 st.subheader("📂 Document Type")
 selected_template_key = None
 selected_doc_category = st.selectbox(
@@ -282,6 +284,7 @@ if selected_template_key:
             file_name=f"{selected_template_key}_final.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
+
 
 
 
