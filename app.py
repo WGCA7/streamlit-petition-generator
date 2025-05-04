@@ -116,7 +116,11 @@ if st.button("🔍 Search Clients"):
                 try:
                     json_data = response.json()
                     st.write("🧪 Full JSON:", json_data)
-                    results = json_data.get("matches", [])
+                    if isinstance(json_data, list):
+                        results = json_data
+                    else:
+                        results = json_data.get("matches", [])
+
                 except Exception as e:
                     st.error(f"❌ Failed to parse JSON: {e}")
                     results = []
