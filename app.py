@@ -1,4 +1,10 @@
 import streamlit as st
+import requests
+import json
+import os
+import re
+from docx import Document
+from io import BytesIO
 
 # --- Template Maps ---
 petition_doc_map = {
@@ -14,14 +20,14 @@ requests_doc_map = {
     "Plaintiff's Request for Initial Disclosures": "initial_disclosures",
     "Plaintiff's Interrogatories to Defendant": "interrogatories",
     "Plaintiff's Request for Admissions": "request_for_admissions",
-    "Plaintiff's Request for Production": "request_for_production",
+    "Plaintiff's Request for Production": "request_for_production"
 }
 
 answers_doc_map = {
     "Plaintiff’s Response to Defendant’s Request for Disclosures": "answer_to_request_for_disclosures",
     "Answer to Interrogatories": "answer_to_interrogatories",
     "Answer to Request for Admissions": "answer_to_request_for_admissions",
-    "Answer to Request for Production": "answer_to_request_for_production",
+    "Answer to Request for Production": "answer_to_request_for_production"
 }
 
 demand_letters = {
@@ -56,7 +62,6 @@ selected_doc_category = st.selectbox(
 if selected_doc_category == "Petitions":
     selected_petition_doc = st.selectbox("Select Petition Template:", list(petition_doc_map.keys()))
     selected_template_key = petition_doc_map[selected_petition_doc]
-
     st.divider()
 elif selected_doc_category == "Discovery":
     discovery_type = st.radio("Select Discovery Task:", ["Documents to Request", "Answering Opposing Counsel Requests"])
@@ -66,36 +71,24 @@ elif selected_doc_category == "Discovery":
     else:
         selected_discovery_doc = st.selectbox("Select Document to Answer:", list(answers_doc_map.keys()))
         selected_template_key = answers_doc_map[selected_discovery_doc]
-
     st.divider()
 elif selected_doc_category == "Demand Letters":
     selected_demand_doc = st.selectbox("Select Demand Letter Type:", list(demand_letters.keys()))
     selected_template_key = demand_letters[selected_demand_doc]
-
     st.divider()
 elif selected_doc_category == "Insurance":
     selected_insurance_doc = st.selectbox("Select Insurance Document:", list(insurance_docs.keys()))
     selected_template_key = insurance_docs[selected_insurance_doc]
-
     st.divider()
 elif selected_doc_category == "Medical":
     selected_medical_doc = st.selectbox("Select Medical Document:", list(medical_docs.keys()))
     selected_template_key = medical_docs[selected_medical_doc]
-
     st.divider()
-import requests
-import json
-import os
-import re
-from docx import Document
-from io import BytesIO
 
 st.subheader("🔎 Search for Client by Name")
-
 zapier_url = "https://streamlit-webhook-backend.onrender.com/receive"
 
 case_id = st.text_input("Enter Case ID (optional)")
-
 first_name = st.text_input("Client First Name")
 last_name = st.text_input("Client Last Name")
 
@@ -112,10 +105,7 @@ if st.button("🔍 Search Clients"):
     elif not first_name or not last_name:
         st.warning("Please enter both first and last name or a Case ID.")
     else:
-        search_payload = {
-            "first_name": first_name,
-            "last_name": last_name
-        }
+        search_payload = {"first_name": first_name, "last_name": last_name}
         try:
             response = requests.post(zapier_url, json=search_payload)
             if response.status_code == 200:
@@ -154,6 +144,7 @@ if os.path.exists(data_path):
             st.warning("⚠️ Could not decode JSON from webhook file.")
 
 st.session_state["webhook_data"] = webhook_data
+replacements = {}
 
 def get_prefill_value(key, default=""):
     return st.session_state["webhook_data"].get(key, default)
@@ -208,7 +199,6 @@ PLACEHOLDER_SCHEMA = {
     }
 }
 
-# --- GPT Section Generator ---
 GPT_SECTION_PROMPTS = {
     "[FACTUAL_BACKGROUND]": {
         "label": "Factual Background",
@@ -238,7 +228,9 @@ with st.expander("🧠 AI Section Generator (Factual Background, Venue, Negligen
         context = st.text_area(f"Enter context for {meta['label']}:", key=f"ctx_{placeholder}")
 
         if st.button(f"Generate {meta['label']}", key=f"btn_{placeholder}"):
-            result = f"[Generated GPT Section for {meta['label']}\n\n{context}]"
+            result = f"[Generated GPT Section for {meta['label']}
+
+{context}]"
             st.session_state["gpt_sections"][placeholder] = result
 
         if placeholder in st.session_state["gpt_sections"]:
@@ -250,7 +242,6 @@ with st.expander("🧠 AI Section Generator (Factual Background, Venue, Negligen
             )
             replacements[placeholder] = st.session_state["gpt_sections"][placeholder]
 
-# --- Venue & Jurisdiction Generator ---
 st.divider()
 with st.expander("📍 Venue & Jurisdiction Generator (optional override)"):
     venue_zip = st.text_input("Enter ZIP code of the accident location")
@@ -277,10 +268,8 @@ with st.expander("📍 Venue & Jurisdiction Generator (optional override)"):
         st.text_area("Generated Venue & Jurisdiction", venue_narrative, height=200)
         replacements["[VENUE_AND_JURISDICTION]"] = venue_narrative
 
-# --- Input Client Information Manually ---
 st.divider()
 st.subheader("📝 Input Client Information Manually")
-replacements = {}
 for section, fields in PLACEHOLDER_SCHEMA.items():
     with st.expander(f"📂 {section}"):
         show_extra = True
@@ -293,17 +282,13 @@ for section, fields in PLACEHOLDER_SCHEMA.items():
             value = st.text_input(label, value=default_val, key=placeholder)
             replacements[placeholder] = value
 
-
-
-
-
-# --- Load Template & Generate Final Document ---
 if selected_template_key:
     doc = load_template(selected_template_key)
     if doc:
         filled_doc = fill_placeholders(doc, replacements)
         if st.button("📄 Preview Document Text"):
-            preview = "\n".join(p.text for p in filled_doc.paragraphs)
+            preview = "
+".join(p.text for p in filled_doc.paragraphs)
             st.text_area("Document Preview", preview, height=400)
 
         buffer = BytesIO()
@@ -314,6 +299,7 @@ if selected_template_key:
             file_name=f"{selected_template_key}_final.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
+
 
 
 
