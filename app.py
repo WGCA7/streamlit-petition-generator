@@ -108,41 +108,43 @@ if st.button("🔍 Search Clients"):
         search_payload = {"first_name": first_name, "last_name": last_name}
         try:
             st.write("🔄 Sending name-based search to Zapier...")
-            st.write("🔄 Sending name-based search to Zapier...")
             response = requests.post(zapier_url, json=search_payload)
             st.write("🔁 Status Code:", response.status_code)
             st.write("🔁 Response Body:", response.text)
+            results = []
+
             if response.status_code == 200:
                 try:
                     json_data = response.json()
                     st.write("🧪 Full JSON:", json_data)
-                    if isinstance(json_data, list):
-                        results = json_data
-                    else:
-                        results = json_data.get("matches", [])
+                    results = json_data.get("matches", [])
 
+                    if not results and json_data.get("status") == "success":
+                        st.warning("No data returned from Zapier directly — attempting to load from file...")
+                        if os.path.exists(data_path):
+                            with open(data_path, "r") as f:
+                                results = json.load(f)
                 except Exception as e:
                     st.error(f"❌ Failed to parse JSON: {e}")
                     results = []
-                if results:
-                    for idx, client in enumerate(results):
-                        st.markdown(f"**{client['full_name']}**")
-                        st.markdown(f"- Accident Type: {client['accident_type']}")
-                        st.markdown(f"- Accident Date: {client['accident_date']}")
-                        if st.button(f"Select This Client", key=f"select_{idx}"):
-                            selected_case_id = client["case_id"]
-                            try:
-                                response = requests.post(zapier_url, json={"case_id": selected_case_id})
-                                if response.status_code == 200:
-                                    st.success(f"✅ Client selected. Case ID {selected_case_id} sent to Zapier.")
-                                else:
-                                    st.error("❌ Failed to send case ID to Zapier.")
-                            except Exception as e:
-                                st.error(f"❌ Error sending client selection: {e}")
-                else:
-                    st.info("No matching clients found.")
+
+            if results:
+                for idx, client in enumerate(results):
+                    st.markdown(f"**{client['full_name']}**")
+                    st.markdown(f"- Accident Type: {client['accident_type']}")
+                    st.markdown(f"- Accident Date: {client['accident_date']}")
+                    if st.button(f"Select This Client", key=f"select_{idx}"):
+                        selected_case_id = client["case_id"]
+                        try:
+                            response = requests.post(zapier_url, json={"case_id": selected_case_id})
+                            if response.status_code == 200:
+                                st.success(f"✅ Client selected. Case ID {selected_case_id} sent to Zapier.")
+                            else:
+                                st.error("❌ Failed to send case ID to Zapier.")
+                        except Exception as e:
+                            st.error(f"❌ Error sending client selection: {e}")
             else:
-                st.error("❌ Error searching clients. Make sure the Zap is configured to handle name-based searches.")
+                st.info("No matching clients found.")
         except Exception as e:
             st.error(f"❌ Could not contact Zapier for client search: {e}")
 
