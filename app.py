@@ -144,7 +144,7 @@ if st.button("🔍 Search Clients"):
 
             if results:
                 for idx, client in enumerate(results):
-                    st.markdown(f"**{client.get('client_name', 'Unnamed')
+                    st.markdown(f"**{client.get('client_name', 'Unnamed')}**")
                     st.markdown(f"- Accident Type: {client['accident_type']}")
                     st.markdown(f"- Accident Date: {client['accident_date']}")
                     if st.button(f"Select This Client", key=f"select_{idx}"):
