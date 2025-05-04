@@ -162,6 +162,10 @@ if os.path.exists(data_path):
             st.warning("⚠️ Could not decode JSON from webhook file.")
 
 st.session_state["webhook_data"] = webhook_data
+
+with st.expander("🔍 Raw Webhook Data", expanded=True):
+    st.json(webhook_data)
+    
 replacements = {}
 
 def get_prefill_value(key, default=""):
