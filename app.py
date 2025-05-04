@@ -235,7 +235,7 @@ with st.expander("🧠 AI Section Generator (Factual Background, Venue, Negligen
 
         if placeholder in st.session_state["gpt_sections"]:
             st.text_area(
-                f"🧠 Generated {meta['label']} Output",
+                result = f"[Generated GPT Section for {meta['label']}\n\n{context}]"
                 st.session_state["gpt_sections"][placeholder],
                 height=200,
                 key=f"out_{placeholder}"
