@@ -356,8 +356,8 @@ if selected_template_key:
     buffer = generate_final_document(selected_template_key, webhook_data)
 
     if st.button("📄 Preview Document Text"):
-        preview_doc = Document(buffer)
-        preview_text = "\n".join(p.text for p in preview_doc.paragraphs)
+        doc = Document(buffer)
+        preview_text = "\n".join(p.text for p in doc.paragraphs)
         st.text_area("Document Preview", preview_text, height=400)
 
     st.download_button(
@@ -366,6 +366,7 @@ if selected_template_key:
         file_name=f"{selected_template_key}_final.docx",
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
+
    
     path = os.path.join("templates", f"{template_name}.docx")
     if not os.path.exists(path):
