@@ -92,7 +92,7 @@ from io import BytesIO
 
 st.subheader("🔎 Search for Client by Name")
 
-zapier_url = "https://hooks.zapier.com/hooks/catch/22771743/2pvwhjw/  # Replace with your actual Zapier URL
+zapier_url = "https://hooks.zapier.com/hooks/catch/your-placeholder-id/ # Replace with your actual Zapier URL
 
 case_id = st.text_input("Enter Case ID (optional)")
 
