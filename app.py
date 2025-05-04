@@ -1,5 +1,47 @@
 import streamlit as st
 
+# --- Template Maps ---
+petition_doc_map = {
+    "MVA - 1 Defendant Original Petition": "mva_1_defendant_original_petition",
+    "MVA - 2 Defendants Original Petition": "mva_2_defendants_original_petition",
+    "Premises Liability Original Petition": "premises_liability_original_petition",
+    "Wrongful Death Original Petition": "wrongful_death_original_petition",
+    "Dog Bite Original Petition": "dog_bite_original_petition",
+    "Medical Malpractice Original Petition": "medical_malpractice_original_petition"
+}
+
+requests_doc_map = {
+    "Plaintiff's Request for Initial Disclosures": "initial_disclosures",
+    "Plaintiff's Interrogatories to Defendant": "interrogatories",
+    "Plaintiff's Request for Admissions": "request_for_admissions",
+    "Plaintiff's Request for Production": "request_for_production",
+}
+
+answers_doc_map = {
+    "Plaintiff’s Response to Defendant’s Request for Disclosures": "answer_to_request_for_disclosures",
+    "Answer to Interrogatories": "answer_to_interrogatories",
+    "Answer to Request for Admissions": "answer_to_request_for_admissions",
+    "Answer to Request for Production": "answer_to_request_for_production",
+}
+
+demand_letters = {
+    "Stowers Demand Letter": "stowers_demand_letter",
+    "General Demand Letter": "demand_letter",
+    "Motor Vehicle Accident Demand Letter": "motor_vehicle_demand_letter",
+    "Uninsured/Underinsured Motorist Demand Letter": "um_uim_demand_letter",
+    "Slip and Fall Demand Letter": "slip_and_fall_demand_letter",
+    "Dog Bite Demand Letter": "dog_bite_demand_letter"
+}
+
+insurance_docs = {
+    "Letter of Representation": "letter_of_representation",
+    "Uninsured/Underinsured Letter of Representation": "um_uim_letter_of_representation"
+}
+
+medical_docs = {
+    "Letter of Protection": "letter_of_protection"
+}
+
 st.title("📄 Legal Document Automation")
 st.divider()
 
@@ -244,47 +286,7 @@ for section, fields in PLACEHOLDER_SCHEMA.items():
             value = st.text_input(label, value=default_val, key=placeholder)
             replacements[placeholder] = value
 
-# --- Template Maps ---
-petition_doc_map = {
-    "MVA - 1 Defendant Original Petition": "mva_1_defendant_original_petition",
-    "MVA - 2 Defendants Original Petition": "mva_2_defendants_original_petition",
-    "Premises Liability Original Petition": "premises_liability_original_petition",
-    "Wrongful Death Original Petition": "wrongful_death_original_petition",
-    "Dog Bite Original Petition": "dog_bite_original_petition",
-    "Medical Malpractice Original Petition": "medical_malpractice_original_petition"
-}
 
-requests_doc_map = {
-    "Plaintiff's Request for Initial Disclosures": "initial_disclosures",
-    "Plaintiff's Interrogatories to Defendant": "interrogatories",
-    "Plaintiff's Request for Admissions": "request_for_admissions",
-    "Plaintiff's Request for Production": "request_for_production",
-}
-
-answers_doc_map = {
-    "Plaintiff’s Response to Defendant’s Request for Disclosures": "answer_to_request_for_disclosures",
-    "Answer to Interrogatories": "answer_to_interrogatories",
-    "Answer to Request for Admissions": "answer_to_request_for_admissions",
-    "Answer to Request for Production": "answer_to_request_for_production",
-}
-
-demand_letters = {
-    "Stowers Demand Letter": "stowers_demand_letter",
-    "General Demand Letter": "demand_letter",
-    "Motor Vehicle Accident Demand Letter": "motor_vehicle_demand_letter",
-    "Uninsured/Underinsured Motorist Demand Letter": "um_uim_demand_letter",
-    "Slip and Fall Demand Letter": "slip_and_fall_demand_letter",
-    "Dog Bite Demand Letter": "dog_bite_demand_letter"
-}
-
-insurance_docs = {
-    "Letter of Representation": "letter_of_representation",
-    "Uninsured/Underinsured Letter of Representation": "um_uim_letter_of_representation"
-}
-
-medical_docs = {
-    "Letter of Protection": "letter_of_protection"
-}
 
 
 
@@ -305,6 +307,7 @@ if selected_template_key:
             file_name=f"{selected_template_key}_final.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
+
 
 
 
