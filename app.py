@@ -330,7 +330,7 @@ def generate_final_document(template_key, webhook_data):
     template_path = os.path.join("templates", f"{template_key}.docx")
     doc = Document(template_path)
     replacements = generate_replacements_from_webhook(webhook_data)
-    filled_doc = fill_placeholders(doc, replacements)
+    buffer = generate_final_document(selected_template_key, st.session_state.get("webhook_data", {}))
     buffer = BytesIO()
     filled_doc.save(buffer)
     buffer.seek(0)
@@ -349,18 +349,30 @@ if __name__ == "__main__":
 
 # --- Template Loading and Document Generation ---
 def load_template(template_name):
+    
+ # --- Final Document Generation and Download ---
+if selected_template_key:
+    webhook_data = st.session_state.get("webhook_data", {})
+    buffer = generate_final_document(selected_template_key, webhook_data)
+
+    if st.button("📄 Preview Document Text"):
+        preview_doc = Document(buffer)
+        preview_text = "\n".join(p.text for p in preview_doc.paragraphs)
+        st.text_area("Document Preview", preview_text, height=400)
+
+    st.download_button(
+        label="📥 Download Final Document",
+        data=buffer.getvalue(),
+        file_name=f"{selected_template_key}_final.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+   
     path = os.path.join("templates", f"{template_name}.docx")
     if not os.path.exists(path):
         st.error(f"❌ Template not found: {template_name}.docx")
         return None
     return Document(path)
 
-def fill_placeholders(doc, replacements):
-    for p in doc.paragraphs:
-        for key, val in replacements.items():
-            if key in p.text:
-                p.text = p.text.replace(key, val)
-    return doc
 
 if selected_template_key:
     buffer = generate_final_document(
