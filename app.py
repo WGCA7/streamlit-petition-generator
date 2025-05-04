@@ -309,6 +309,9 @@ def fill_placeholders(doc: Document, replacements: dict):
         for key, val in replacements.items():
             if key in p.text:
                 p.text = p.text.replace(key, val)
+
+    # Optional: handle headers, tables, and footers in future
+
     return doc
 
 # --- Scan Utility to List Placeholders in All Templates ---
