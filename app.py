@@ -217,11 +217,14 @@ with st.expander("📍 Venue & Jurisdiction Generator (optional override)"):
 # --- Input Fields ---
 st.divider()
 st.subheader("📝 Input Client Information Manually")
+# --- Template Placeholder Schemas ---
 PLACEHOLDER_SCHEMA = {
     "Client Info": {
         "[CLIENT_NAME]": "Client Name",
         "[CLIENT_DOB]": "Date of Birth",
-        "[CLIENT_PHONE]": "Phone Number"
+        "[CLIENT_PHONE]": "Phone Number",
+        "[CLIENT_ADDRESS]": "Client Address",
+        "[CLIENT_COUNTY]": "Client County"
     },
     "Accident Info": {
         "[DATE_OF_ACCIDENT]": "Date of Accident",
@@ -253,18 +256,89 @@ PLACEHOLDER_SCHEMA = {
     }
 }
 
-replacements = {}
-for section, fields in PLACEHOLDER_SCHEMA.items():
-    with st.expander(f"📂 {section}"):
-        show_extra = True
-        if section == "Defendant Info":
-            show_extra = st.checkbox("Include Second Defendant?", key="show_def2")
-        for placeholder, label in fields.items():
-            if "DEFENDANT_2" in placeholder and not st.session_state.get("show_def2", False):
-                continue
-            default_val = get_prefill_value(label.lower().replace(" ", "_"))
-            value = st.text_input(label, value=default_val, key=placeholder)
-            replacements[placeholder] = value
+# Optional aliases for internal consistency
+PLACEHOLDER_ALIAS_MAP = {
+    "[CLIENT_NAME]": "[PLAINTIFFS_NAME]",
+    "[CLIENT_DOB]": "[PLAINTIFFS_DOB]",
+    "[CLIENT_PHONE]": "[PLAINTIFFS_PHONE]"
+}
+
+# Handles Word merge-code style placeholders
+CUSTOM_ALIAS_MAP = {
+    "«PlaintiffName»": "[CLIENT_NAME]",
+    "«PlaintiffLastName»": "[CLIENT_NAME]",
+    "«PlaintiffAddress»": "[CLIENT_ADDRESS]",
+    "«PlaintiffCounty»": "[CLIENT_COUNTY]",
+    "«DefendantName»": "[DEFENDANT_1_NAME]",
+    "«DefendantLastName»": "[DEFENDANT_1_NAME]",
+    "«DefendantAddress»": "[DEFENDANT_1_ADDRESS]"
+}
+
+# --- Generate Replacements from Webhook Data ---
+def generate_replacements_from_webhook(webhook_data):
+    replacements = {}
+
+    for section_fields in PLACEHOLDER_SCHEMA.values():
+        for placeholder, label in section_fields.items():
+            if isinstance(label, str):
+                zapier_key = label.lower().replace(" ", "_")
+                value = webhook_data.get(zapier_key, "")
+                replacements[placeholder] = value
+
+                # If we have aliases for the placeholder, bind them too
+                if placeholder in PLACEHOLDER_ALIAS_MAP:
+                    alias = PLACEHOLDER_ALIAS_MAP[placeholder]
+                    replacements[alias] = value
+
+    # Handle Word-style «merge codes»
+    for custom_token, alias_placeholder in CUSTOM_ALIAS_MAP.items():
+        if alias_placeholder in replacements:
+            replacements[custom_token] = replacements[alias_placeholder]
+
+            # Special case: extract last name
+            if "LastName" in custom_token:
+                name_val = replacements[alias_placeholder]
+                if name_val:
+                    replacements[custom_token] = name_val.split()[-1]  # Use last word as last name
+
+    return replacements
+
+# --- Replace Placeholders in .docx Template ---
+def fill_placeholders(doc: Document, replacements: dict):
+    for p in doc.paragraphs:
+        for key, val in replacements.items():
+            if key in p.text:
+                p.text = p.text.replace(key, val)
+    return doc
+
+# --- Scan Utility to List Placeholders in All Templates ---
+def extract_placeholders(docx_path):
+    placeholders = set()
+    doc = Document(docx_path)
+    for p in doc.paragraphs:
+        tokens = re.findall(r"[\[][^\]]+[\]]|[«][^\u00bb]+[»]", p.text)
+        placeholders.update(tokens)
+    return placeholders
+
+def scan_all_templates(template_dir="templates"):
+    all_placeholders = {}
+    for filename in os.listdir(template_dir):
+        if filename.endswith(".docx"):
+            path = os.path.join(template_dir, filename)
+            tokens = extract_placeholders(path)
+            all_placeholders[filename] = sorted(tokens)
+    return all_placeholders
+
+# Example: Run this standalone to preview tokens per template
+if __name__ == "__main__":
+    print("\n📄 Detected Placeholders by Template:\n")
+    result = scan_all_templates("templates")
+    for file, tokens in result.items():
+        print(f"🗂️  {file}:")
+        for t in tokens:
+            print(f"  - {t}")
+        print()
+
 
 # --- Template Loading and Document Generation ---
 def load_template(template_name):
