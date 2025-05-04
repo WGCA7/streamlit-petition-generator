@@ -285,21 +285,17 @@ def generate_replacements_from_webhook(webhook_data):
                 value = webhook_data.get(zapier_key, "")
                 replacements[placeholder] = value
 
-                # If we have aliases for the placeholder, bind them too
                 if placeholder in PLACEHOLDER_ALIAS_MAP:
                     alias = PLACEHOLDER_ALIAS_MAP[placeholder]
                     replacements[alias] = value
 
-    # Handle Word-style «merge codes»
     for custom_token, alias_placeholder in CUSTOM_ALIAS_MAP.items():
         if alias_placeholder in replacements:
             replacements[custom_token] = replacements[alias_placeholder]
-
-            # Special case: extract last name
             if "LastName" in custom_token:
                 name_val = replacements[alias_placeholder]
                 if name_val:
-                    replacements[custom_token] = name_val.split()[-1]  # Use last word as last name
+                    replacements[custom_token] = name_val.split()[-1]
 
     return replacements
 
@@ -309,9 +305,6 @@ def fill_placeholders(doc: Document, replacements: dict):
         for key, val in replacements.items():
             if key in p.text:
                 p.text = p.text.replace(key, val)
-
-    # Optional: handle headers, tables, and footers in future
-
     return doc
 
 # --- Scan Utility to List Placeholders in All Templates ---
@@ -332,7 +325,17 @@ def scan_all_templates(template_dir="templates"):
             all_placeholders[filename] = sorted(tokens)
     return all_placeholders
 
-# Example: Run this standalone to preview tokens per template
+# --- Final Document Generation (to use in Streamlit app) ---
+def generate_final_document(template_path, webhook_data):
+    doc = Document(template_path)
+    replacements = generate_replacements_from_webhook(webhook_data)
+    filled_doc = fill_placeholders(doc, replacements)
+    buffer = BytesIO()
+    filled_doc.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+# --- Entry point for debugging ---
 if __name__ == "__main__":
     print("\n📄 Detected Placeholders by Template:\n")
     result = scan_all_templates("templates")
