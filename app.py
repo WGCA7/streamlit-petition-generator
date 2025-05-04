@@ -173,6 +173,7 @@ with st.expander("🧠 AI Section Generator (Factual Background, Venue, Negligen
             result = f"""[Generated GPT Section for {meta['label']}]
 
 {context}"""
+
             st.session_state["gpt_sections"][placeholder] = result
 
         if placeholder in st.session_state["gpt_sections"]:
@@ -294,6 +295,7 @@ if selected_template_key:
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
 # (To be added next message due to size constraints)
+
 
 
 
