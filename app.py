@@ -1,14 +1,4 @@
 import streamlit as st
-import requests
-import json
-import os
-from docx import Document
-from io import BytesIO
-from legal_template_binding import generate_final_document  # Backend import to use the final document generation
-
-st.set_page_config(page_title="Legal Document Generator", layout="wide")
-st.title("📄 Legal Document Automation")
-st.divider()
 
 # --- Template Maps ---
 petition_doc_map = {
@@ -52,6 +42,9 @@ medical_docs = {
     "Letter of Protection": "letter_of_protection"
 }
 
+st.title("📄 Legal Document Automation")
+st.divider()
+
 # --- Document Category Selection ---
 st.subheader("📂 Document Type")
 selected_template_key = None
@@ -63,6 +56,8 @@ selected_doc_category = st.selectbox(
 if selected_doc_category == "Petitions":
     selected_petition_doc = st.selectbox("Select Petition Template:", list(petition_doc_map.keys()))
     selected_template_key = petition_doc_map[selected_petition_doc]
+
+    st.divider()
 elif selected_doc_category == "Discovery":
     discovery_type = st.radio("Select Discovery Task:", ["Documents to Request", "Answering Opposing Counsel Requests"])
     if discovery_type == "Documents to Request":
@@ -71,23 +66,36 @@ elif selected_doc_category == "Discovery":
     else:
         selected_discovery_doc = st.selectbox("Select Document to Answer:", list(answers_doc_map.keys()))
         selected_template_key = answers_doc_map[selected_discovery_doc]
+
+    st.divider()
 elif selected_doc_category == "Demand Letters":
     selected_demand_doc = st.selectbox("Select Demand Letter Type:", list(demand_letters.keys()))
     selected_template_key = demand_letters[selected_demand_doc]
+
+    st.divider()
 elif selected_doc_category == "Insurance":
     selected_insurance_doc = st.selectbox("Select Insurance Document:", list(insurance_docs.keys()))
     selected_template_key = insurance_docs[selected_insurance_doc]
+
+    st.divider()
 elif selected_doc_category == "Medical":
     selected_medical_doc = st.selectbox("Select Medical Document:", list(medical_docs.keys()))
     selected_template_key = medical_docs[selected_medical_doc]
 
-st.divider()
+    st.divider()
+import requests
+import json
+import os
+import re
+from docx import Document
+from io import BytesIO
 
-# --- Client Lookup via Zapier Webhook ---
 st.subheader("🔎 Search for Client by Name")
 
 zapier_url = "https://streamlit-webhook-backend.onrender.com/receive"
+
 case_id = st.text_input("Enter Case ID (optional)")
+
 first_name = st.text_input("Client First Name")
 last_name = st.text_input("Client Last Name")
 
@@ -96,7 +104,7 @@ if st.button("🔍 Search Clients"):
         try:
             response = requests.post(zapier_url, json={"case_id": case_id})
             if response.status_code == 200:
-                st.success("✅ Case ID sent to Zapier. Awaiting CasePeer data...")
+                st.success("✅ Case ID sent to Zapier successfully. Awaiting CasePeer data...")
             else:
                 st.error(f"❌ Failed to send case ID. Status code: {response.status_code}")
         except Exception as e:
@@ -104,52 +112,71 @@ if st.button("🔍 Search Clients"):
     elif not first_name or not last_name:
         st.warning("Please enter both first and last name or a Case ID.")
     else:
+        search_payload = {
+            "first_name": first_name,
+            "last_name": last_name
+        }
         try:
-            response = requests.post(zapier_url, json={"first_name": first_name, "last_name": last_name})
+            response = requests.post(zapier_url, json=search_payload)
             if response.status_code == 200:
-                st.success("✅ Name-based request sent. Reload shortly to fetch data.")
+                results = response.json().get("matches", [])
+                if results:
+                    for idx, client in enumerate(results):
+                        st.markdown(f"**{client['full_name']}**")
+                        st.markdown(f"- Accident Type: {client['accident_type']}")
+                        st.markdown(f"- Accident Date: {client['accident_date']}")
+                        if st.button(f"Select This Client", key=f"select_{idx}"):
+                            selected_case_id = client["case_id"]
+                            try:
+                                response = requests.post(zapier_url, json={"case_id": selected_case_id})
+                                if response.status_code == 200:
+                                    st.success(f"✅ Client selected. Case ID {selected_case_id} sent to Zapier.")
+                                else:
+                                    st.error("❌ Failed to send case ID to Zapier.")
+                            except Exception as e:
+                                st.error(f"❌ Error sending client selection: {e}")
+                else:
+                    st.info("No matching clients found.")
             else:
-                st.error("❌ Name search failed.")
+                st.error("❌ Error searching clients. Make sure the Zap is configured to handle name-based searches.")
         except Exception as e:
-            st.error(f"❌ Zapier request error: {e}")
+            st.error(f"❌ Could not contact Zapier for client search: {e}")
 
-# --- Webhook Refresh ---
-st.subheader("🔄 Refresh Webhook Data")
-if "webhook_data" not in st.session_state:
-    st.session_state["webhook_data"] = {}
+# --- Load Data from webhook JSON (if exists) ---
+webhook_data = {}
+data_path = "latest_webhook_data.json"
+if os.path.exists(data_path):
+    with open(data_path, "r") as f:
+        try:
+            webhook_data = json.load(f)
+            st.success("✅ Auto-fill data loaded from webhook.")
+        except json.JSONDecodeError:
+            st.warning("⚠️ Could not decode JSON from webhook file.")
 
-if st.button("🔄 Reload Webhook Data"):
-    try:
-        response = requests.get("https://streamlit-webhook-backend.onrender.com/latest")
-        if response.status_code == 200:
-            webhook_data = response.json()
-            if "error" not in webhook_data:
-                st.session_state["webhook_data"] = webhook_data
-                st.success("✅ Webhook data refreshed.")
-            else:
-                st.warning("⚠️ No data found in webhook.")
-        else:
-            st.error(f"❌ Webhook status: {response.status_code}")
-    except Exception as e:
-        st.error(f"❌ Could not contact webhook: {e}")
+st.session_state["webhook_data"] = webhook_data
 
-# --- Manual Input Fields ---
-st.divider()
-st.subheader("📝 Input Client Information Manually")
+def get_prefill_value(key, default=""):
+    return st.session_state["webhook_data"].get(key, default)
 
-# Pull webhook data for prefill
-webhook_data = st.session_state.get("webhook_data", {})
+def load_template(template_name):
+    path = os.path.join("templates", f"{template_name}.docx")
+    if not os.path.exists(path):
+        st.error(f"❌ Template not found: {template_name}.docx")
+        return None
+    return Document(path)
 
-def get_prefill_value(label):
-    return webhook_data.get(label.lower().replace(" ", "_"), "")
+def fill_placeholders(doc, replacements):
+    for p in doc.paragraphs:
+        for key, val in replacements.items():
+            if key in p.text:
+                p.text = p.text.replace(key, val)
+    return doc
 
 PLACEHOLDER_SCHEMA = {
     "Client Info": {
         "[CLIENT_NAME]": "Client Name",
         "[CLIENT_DOB]": "Date of Birth",
-        "[CLIENT_PHONE]": "Phone Number",
-        "[CLIENT_ADDRESS]": "Client Address",
-        "[CLIENT_COUNTY]": "Client County"
+        "[CLIENT_PHONE]": "Phone Number"
     },
     "Accident Info": {
         "[DATE_OF_ACCIDENT]": "Date of Accident",
@@ -181,60 +208,112 @@ PLACEHOLDER_SCHEMA = {
     }
 }
 
+# --- GPT Section Generator ---
+GPT_SECTION_PROMPTS = {
+    "[FACTUAL_BACKGROUND]": {
+        "label": "Factual Background",
+        "prompt": "Draft a factual background section based on the following case facts:"
+    },
+    "[VENUE_AND_JURISDICTION]": {
+        "label": "Venue & Jurisdiction",
+        "prompt": "Explain the appropriate venue and jurisdiction for this case:"
+    },
+    "[NEGLIGENCE_ALLEGATIONS]": {
+        "label": "Negligence Allegations",
+        "prompt": "List the negligence allegations against the defendant based on the following facts:"
+    },
+    "[PRAYER]": {
+        "label": "Prayer for Relief",
+        "prompt": "Draft a standard prayer for relief in a personal injury petition:"
+    }
+}
+
+st.divider()
+with st.expander("🧠 AI Section Generator (Factual Background, Venue, Negligence, Prayer)"):
+    if "gpt_sections" not in st.session_state:
+        st.session_state["gpt_sections"] = {}
+
+    for placeholder, meta in GPT_SECTION_PROMPTS.items():
+        st.markdown(f"### 📄 {meta['label']}")
+        context = st.text_area(f"Enter context for {meta['label']}:", key=f"ctx_{placeholder}")
+
+        if st.button(f"Generate {meta['label']}", key=f"btn_{placeholder}"):
+            result = f"[Generated GPT Section for {meta['label']}\n\n{context}]"
+            st.session_state["gpt_sections"][placeholder] = result
+
+        if placeholder in st.session_state["gpt_sections"]:
+            st.text_area(
+                f"🧠 Generated {meta['label']} Output",
+                st.session_state["gpt_sections"][placeholder],
+                height=200,
+                key=f"out_{placeholder}"
+            )
+            replacements[placeholder] = st.session_state["gpt_sections"][placeholder]
+
+# --- Venue & Jurisdiction Generator ---
+st.divider()
+with st.expander("📍 Venue & Jurisdiction Generator (optional override)"):
+    venue_zip = st.text_input("Enter ZIP code of the accident location")
+    defendant_county = st.text_input("Enter county where Defendant resides (if known)")
+    defendant_principal_office = st.text_input("Enter county of Defendant's principal office (if applicable)")
+
+    def generate_venue_narrative(accident_county, def_county=None, office_county=None):
+        venue_bases = []
+        if accident_county:
+            venue_bases.append(f"under CPRC §15.002(a)(1) because a substantial part of the events giving rise to this lawsuit occurred in {accident_county} County")
+        if def_county:
+            venue_bases.append(f"under CPRC §15.002(a)(2) because the Defendant resides in {def_county} County")
+        if office_county:
+            venue_bases.append(f"under CPRC §15.002(a)(3) because the Defendant’s principal office is located in {office_county} County")
+        return f"Venue is proper in {accident_county} County, Texas, and also potentially " + "; ".join(venue_bases) + "."
+
+    if st.button("Generate Venue Narrative"):
+        accident_county = "Harris" if venue_zip == "77002" else "Unknown"
+        venue_narrative = generate_venue_narrative(
+            accident_county,
+            defendant_county,
+            defendant_principal_office
+        )
+        st.text_area("Generated Venue & Jurisdiction", venue_narrative, height=200)
+        replacements["[VENUE_AND_JURISDICTION]"] = venue_narrative
+
+# --- Input Client Information Manually ---
+st.divider()
+st.subheader("📝 Input Client Information Manually")
 replacements = {}
 for section, fields in PLACEHOLDER_SCHEMA.items():
     with st.expander(f"📂 {section}"):
         show_extra = True
         if section == "Defendant Info":
             show_extra = st.checkbox("Include Second Defendant?", key="show_def2")
-
         for placeholder, label in fields.items():
             if "DEFENDANT_2" in placeholder and not st.session_state.get("show_def2", False):
                 continue
-            default_val = get_prefill_value(label)
+            default_val = get_prefill_value(label.lower().replace(" ", "_"))
             value = st.text_input(label, value=default_val, key=placeholder)
             replacements[placeholder] = value
 
-# Store user-entered fields in session for backup
-st.session_state["manual_inputs"] = replacements
 
-# --- Final Document Generation & Download ---
-st.divider()
-st.subheader("📥 Generate Final Document")
 
+
+
+# --- Load Template & Generate Final Document ---
 if selected_template_key:
-    webhook_data = st.session_state.get("webhook_data", {})
-
-    # Merge in manual overrides
-    if "manual_inputs" in st.session_state:
-        webhook_data.update({
-            k.lower().replace(" ", "_"): v for k, v in st.session_state["manual_inputs"].items()
-        })
-
-    # Add GPT-filled content
-    if "gpt_sections" in st.session_state:
-        webhook_data.update({
-            k.lower().replace(" ", "_"): v for k, v in st.session_state["gpt_sections"].items()
-        })
-
-    try:
-        buffer = generate_final_document(selected_template_key, webhook_data)
-
+    doc = load_template(selected_template_key)
+    if doc:
+        filled_doc = fill_placeholders(doc, replacements)
         if st.button("📄 Preview Document Text"):
-            doc = Document(BytesIO(buffer.getvalue()))
-            preview = "\n".join(p.text for p in doc.paragraphs)
-            st.text_area("📄 Preview Output", preview, height=400)
+            preview = "\n".join(p.text for p in filled_doc.paragraphs)
+            st.text_area("Document Preview", preview, height=400)
 
+        buffer = BytesIO()
+        filled_doc.save(buffer)
         st.download_button(
             label="📥 Download Final Document",
             data=buffer.getvalue(),
             file_name=f"{selected_template_key}_final.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
-    except Exception as e:
-        st.error(f"❌ Error generating document: {e}")
-else:
-    st.info("⚠️ Please select a document template from above.")
 
 
 
