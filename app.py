@@ -86,7 +86,7 @@ elif selected_doc_category == "Medical":
     st.divider()
 
 st.subheader("🔎 Search for Client by Name")
-zapier_url = "https://streamlit-webhook-backend.onrender.com/receive"
+zapier_url = "https://hooks.zapier.com/hooks/catch/22771743/2nyirui/"
 
 case_id = st.text_input("Enter Case ID (optional)")
 first_name = st.text_input("Client First Name")
@@ -115,6 +115,8 @@ if st.button("🔍 Search Clients"):
                         st.markdown(f"**{client['full_name']}**")
                         st.markdown(f"- Accident Type: {client['accident_type']}")
                         st.markdown(f"- Accident Date: {client['accident_date']}")
+                        st.markdown(f"- DOB: {client.get('dob', 'Not provided')}")
+
                         if st.button(f"Select This Client", key=f"select_{idx}"):
                             selected_case_id = client["case_id"]
                             try:
