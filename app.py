@@ -4,7 +4,7 @@ import json
 import os
 from docx import Document
 from io import BytesIO
-from legal_template_binding import generate_final_document  # this is your backend module
+from legal_template_binding import generate_final_document  # Backend import to use the final document generation
 
 st.set_page_config(page_title="Legal Document Generator", layout="wide")
 st.title("📄 Legal Document Automation")
@@ -132,6 +132,7 @@ if st.button("🔄 Reload Webhook Data"):
             st.error(f"❌ Webhook status: {response.status_code}")
     except Exception as e:
         st.error(f"❌ Could not contact webhook: {e}")
+
 # --- Manual Input Fields ---
 st.divider()
 st.subheader("📝 Input Client Information Manually")
@@ -196,6 +197,7 @@ for section, fields in PLACEHOLDER_SCHEMA.items():
 
 # Store user-entered fields in session for backup
 st.session_state["manual_inputs"] = replacements
+
 # --- GPT Section Generator ---
 st.divider()
 GPT_SECTION_PROMPTS = {
@@ -294,6 +296,7 @@ if selected_template_key:
         st.error(f"❌ Error generating document: {e}")
 else:
     st.info("⚠️ Please select a document template from above.")
+
 
 
 
