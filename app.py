@@ -6,25 +6,8 @@ import re
 from docx import Document
 from io import BytesIO
 
-# --- Zapier Trigger UI ---
-st.title("📄 Legal Document Automation")
-
-st.markdown("Enter the Case ID below to pull the client info via Zapier and CasePeer.")
-
-zapier_url = "https://hooks.zapier.com/hooks/catch/abc123/xyz456"  # Replace with your real Zapier Catch Hook
-case_id = st.text_input("Enter Case ID to Pull from CasePeer")
-
-if st.button("📤 Send Case ID to Zapier"):
-    if case_id:
-        response = requests.post(zapier_url, json={"case_id": case_id})
-        if response.status_code == 200:
-            st.success("✅ Case ID sent to Zapier successfully. Awaiting CasePeer data...")
-        else:
-            st.error(f"❌ Failed to send case ID. Status code: {response.status_code}")
-    else:
-        st.warning("⚠️ Please enter a Case ID before sending.")
-
-# --- New: Client Search UI ---
+# --- Client Search ---
+st.subheader("🔎 Client Search")
 st.subheader("🔎 Search for Client by Name")
 
 first_name = st.text_input("Client First Name")
@@ -38,25 +21,31 @@ if st.button("🔍 Search Clients"):
             "first_name": first_name,
             "last_name": last_name
         }
-        response = requests.post(zapier_url, json=search_payload)
-        if response.status_code == 200:
-            results = response.json().get("matches", [])  # assuming Zapier returns list in 'matches'
-            if results:
-                for idx, client in enumerate(results):
-                    st.markdown(f"**{client['full_name']}**")
-                    st.markdown(f"- Accident Type: {client['accident_type']}")
-                    st.markdown(f"- Accident Date: {client['accident_date']}")
-                    if st.button(f"Select This Client", key=f"select_{idx}"):
-                        selected_case_id = client["case_id"]
-                        response = requests.post(zapier_url, json={"case_id": selected_case_id})
-                        if response.status_code == 200:
-                            st.success(f"✅ Client selected. Case ID {selected_case_id} sent to Zapier.")
-                        else:
-                            st.error("❌ Failed to send case ID to Zapier.")
+        try:
+            response = requests.post(zapier_url, json=search_payload)
+            if response.status_code == 200:
+                results = response.json().get("matches", [])
+                if results:
+                    for idx, client in enumerate(results):
+                        st.markdown(f"**{client['full_name']}**")
+                        st.markdown(f"- Accident Type: {client['accident_type']}")
+                        st.markdown(f"- Accident Date: {client['accident_date']}")
+                        if st.button(f"Select This Client", key=f"select_{idx}"):
+                            selected_case_id = client["case_id"]
+                            try:
+                                response = requests.post(zapier_url, json={"case_id": selected_case_id})
+                                if response.status_code == 200:
+                                    st.success(f"✅ Client selected. Case ID {selected_case_id} sent to Zapier.")
+                                else:
+                                    st.error("❌ Failed to send case ID to Zapier.")
+                            except Exception as e:
+                                st.error(f"❌ Error sending client selection: {e}")
+                else:
+                    st.info("No matching clients found.")
             else:
-                st.info("No matching clients found.")
-        else:
-            st.error("❌ Error searching clients. Make sure the Zap is configured to handle name-based searches.")
+                st.error("❌ Error searching clients. Make sure the Zap is configured to handle name-based searches.")
+        except Exception as e:
+            st.error(f"❌ Could not contact Zapier for client search: {e}")
 
 # --- Load Data from webhook JSON (if exists) ---
 webhook_data = {}
@@ -191,7 +180,7 @@ with st.expander("📍 Venue & Jurisdiction Generator (optional override)"):
         st.text_area("Generated Venue & Jurisdiction", venue_narrative, height=200)
         replacements["[VENUE_AND_JURISDICTION]"] = venue_narrative
 
-# --- Fill Placeholders ---
+# --- Input Client Information Manually ---
 st.subheader("🔁 Fill Placeholders")
 replacements = {}
 for section, fields in PLACEHOLDER_SCHEMA.items():
@@ -294,6 +283,7 @@ if selected_template_key:
             file_name=f"{selected_template_key}_final.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
+
 
 
 
