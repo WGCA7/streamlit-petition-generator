@@ -166,6 +166,9 @@ st.session_state["webhook_data"] = webhook_data
 with st.expander("🔍 Raw Webhook Data", expanded=True):
     st.json(webhook_data)
     
+    st.write("🔎 Type of webhook_data:", type(webhook_data))
+    st.write("📦 Raw contents:", webhook_data)
+    
 replacements = {}
 
 def get_prefill_value(key, default=""):
