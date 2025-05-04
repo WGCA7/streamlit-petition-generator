@@ -5,6 +5,8 @@ import os
 import re
 from docx import Document
 from io import BytesIO
+data_path = "latest_webhook_data.json"
+
 
 # --- Template Maps ---
 petition_doc_map = {
@@ -117,7 +119,7 @@ if st.button("🔍 Search Clients"):
                 try:
                     json_data = response.json()
                     st.write("🧪 Full JSON:", json_data)
-                    results = json_data.get("matches", [])
+                    results = json_data.get("clients", [])
 
                     if not results and json_data.get("status") == "success":
                         st.warning("No data returned from Zapier directly — attempting to load from file...")
