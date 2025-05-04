@@ -363,9 +363,10 @@ def fill_placeholders(doc, replacements):
     return doc
 
 if selected_template_key:
-    doc = load_template(selected_template_key)
-    if doc:
-        filled_doc = fill_placeholders(doc, replacements)
+    buffer = generate_final_document(
+    selected_template_key,
+    st.session_state.get("webhook_data", {})
+)
         if st.button("📄 Preview Document Text"):
             preview = "\n".join(p.text for p in filled_doc.paragraphs)
 
