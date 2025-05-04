@@ -56,7 +56,8 @@ selected_doc_category = st.selectbox(
 if selected_doc_category == "Petitions":
     selected_petition_doc = st.selectbox("Select Petition Template:", list(petition_doc_map.keys()))
     selected_template_key = petition_doc_map[selected_petition_doc]
-st.divider()
+
+    st.divider()
 elif selected_doc_category == "Discovery":
     discovery_type = st.radio("Select Discovery Task:", ["Documents to Request", "Answering Opposing Counsel Requests"])
     if discovery_type == "Documents to Request":
@@ -65,19 +66,23 @@ elif selected_doc_category == "Discovery":
     else:
         selected_discovery_doc = st.selectbox("Select Document to Answer:", list(answers_doc_map.keys()))
         selected_template_key = answers_doc_map[selected_discovery_doc]
-st.divider()
+
+    st.divider()
 elif selected_doc_category == "Demand Letters":
     selected_demand_doc = st.selectbox("Select Demand Letter Type:", list(demand_letters.keys()))
     selected_template_key = demand_letters[selected_demand_doc]
-st.divider()
+
+    st.divider()
 elif selected_doc_category == "Insurance":
     selected_insurance_doc = st.selectbox("Select Insurance Document:", list(insurance_docs.keys()))
     selected_template_key = insurance_docs[selected_insurance_doc]
-st.divider()
+
+    st.divider()
 elif selected_doc_category == "Medical":
     selected_medical_doc = st.selectbox("Select Medical Document:", list(medical_docs.keys()))
     selected_template_key = medical_docs[selected_medical_doc]
-st.divider()
+
+    st.divider()
 import requests
 import json
 import os
@@ -309,6 +314,7 @@ if selected_template_key:
             file_name=f"{selected_template_key}_final.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
+
 
 
 
