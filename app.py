@@ -6,8 +6,6 @@ import re
 from docx import Document
 from io import BytesIO
 
-# --- Client Search ---
-st.subheader("🔎 Client Search")
 st.subheader("🔎 Search for Client by Name")
 
 first_name = st.text_input("Client First Name")
@@ -181,7 +179,7 @@ with st.expander("📍 Venue & Jurisdiction Generator (optional override)"):
         replacements["[VENUE_AND_JURISDICTION]"] = venue_narrative
 
 # --- Input Client Information Manually ---
-st.subheader("🔁 Fill Placeholders")
+st.subheader("📝 Input Client Information Manually")
 replacements = {}
 for section, fields in PLACEHOLDER_SCHEMA.items():
     with st.expander(f"📂 {section}"):
@@ -238,6 +236,7 @@ medical_docs = {
 }
 
 # --- Document Category Selection ---
+# (Moved above Client Search)
 st.subheader("📂 Document Type")
 selected_template_key = None
 selected_doc_category = st.selectbox(
@@ -283,6 +282,7 @@ if selected_template_key:
             file_name=f"{selected_template_key}_final.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
+
 
 
 
