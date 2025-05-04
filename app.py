@@ -95,7 +95,11 @@ last_name = st.text_input("Client Last Name")
 if st.button("🔍 Search Clients"):
     if case_id:
         try:
-            response = requests.post(zapier_url, json={"case_id": case_id})
+            st.write("🔄 Sending name-based search to Zapier...")
+            response = requests.post(zapier_url, json=search_payload)
+            st.write("🔁 Status Code:", response.status_code)
+            st.write("🔁 Response Body:", response.text)
+
             if response.status_code == 200:
                 st.success("✅ Case ID sent to Zapier successfully. Awaiting CasePeer data...")
             else:
