@@ -1,6 +1,37 @@
 import streamlit as st
 
 st.title("📄 Legal Document Automation")
+st.divider()
+
+# --- Document Category Selection ---
+st.subheader("📂 Document Type")
+st.divider()
+selected_template_key = None
+selected_doc_category = st.selectbox(
+    "Choose Document Category:",
+    ["Petitions", "Discovery", "Demand Letters", "Insurance", "Medical"]
+)
+
+if selected_doc_category == "Petitions":
+    selected_petition_doc = st.selectbox("Select Petition Template:", list(petition_doc_map.keys()))
+    selected_template_key = petition_doc_map[selected_petition_doc]
+elif selected_doc_category == "Discovery":
+    discovery_type = st.radio("Select Discovery Task:", ["Documents to Request", "Answering Opposing Counsel Requests"])
+    if discovery_type == "Documents to Request":
+        selected_discovery_doc = st.selectbox("Select Document to Request:", list(requests_doc_map.keys()))
+        selected_template_key = requests_doc_map[selected_discovery_doc]
+    else:
+        selected_discovery_doc = st.selectbox("Select Document to Answer:", list(answers_doc_map.keys()))
+        selected_template_key = answers_doc_map[selected_discovery_doc]
+elif selected_doc_category == "Demand Letters":
+    selected_demand_doc = st.selectbox("Select Demand Letter Type:", list(demand_letters.keys()))
+    selected_template_key = demand_letters[selected_demand_doc]
+elif selected_doc_category == "Insurance":
+    selected_insurance_doc = st.selectbox("Select Insurance Document:", list(insurance_docs.keys()))
+    selected_template_key = insurance_docs[selected_insurance_doc]
+elif selected_doc_category == "Medical":
+    selected_medical_doc = st.selectbox("Select Medical Document:", list(medical_docs.keys()))
+    selected_template_key = medical_docs[selected_medical_doc]
 import requests
 import json
 import os
@@ -9,13 +40,27 @@ from docx import Document
 from io import BytesIO
 
 st.subheader("🔎 Search for Client by Name")
+st.divider()
+
+zapier_url = "https://hooks.zapier.com/hooks/catch/abc123/xyz456"  # Replace with your actual Zapier URL
+
+case_id = st.text_input("Enter Case ID (optional)")
 
 first_name = st.text_input("Client First Name")
 last_name = st.text_input("Client Last Name")
 
 if st.button("🔍 Search Clients"):
-    if not first_name or not last_name:
-        st.warning("Please enter both first and last name.")
+    if case_id:
+        try:
+            response = requests.post(zapier_url, json={"case_id": case_id})
+            if response.status_code == 200:
+                st.success("✅ Case ID sent to Zapier successfully. Awaiting CasePeer data...")
+            else:
+                st.error(f"❌ Failed to send case ID. Status code: {response.status_code}")
+        except Exception as e:
+            st.error(f"❌ Could not reach Zapier: {e}")
+    elif not first_name or not last_name:
+        st.warning("Please enter both first and last name or a Case ID.")
     else:
         search_payload = {
             "first_name": first_name,
@@ -133,6 +178,7 @@ GPT_SECTION_PROMPTS = {
     }
 }
 
+st.divider()
 with st.expander("🧠 AI Section Generator (Factual Background, Venue, Negligence, Prayer)"):
     if "gpt_sections" not in st.session_state:
         st.session_state["gpt_sections"] = {}
@@ -155,6 +201,7 @@ with st.expander("🧠 AI Section Generator (Factual Background, Venue, Negligen
             replacements[placeholder] = st.session_state["gpt_sections"][placeholder]
 
 # --- Venue & Jurisdiction Generator ---
+st.divider()
 with st.expander("📍 Venue & Jurisdiction Generator (optional override)"):
     venue_zip = st.text_input("Enter ZIP code of the accident location")
     defendant_county = st.text_input("Enter county where Defendant resides (if known)")
@@ -181,7 +228,9 @@ with st.expander("📍 Venue & Jurisdiction Generator (optional override)"):
         replacements["[VENUE_AND_JURISDICTION]"] = venue_narrative
 
 # --- Input Client Information Manually ---
+st.divider()
 st.subheader("📝 Input Client Information Manually")
+st.divider()
 replacements = {}
 for section, fields in PLACEHOLDER_SCHEMA.items():
     with st.expander(f"📂 {section}"):
@@ -237,35 +286,7 @@ medical_docs = {
     "Letter of Protection": "letter_of_protection"
 }
 
-# --- Document Category Selection ---
-# (Now at the top of the app)
-st.subheader("📂 Document Type")
-selected_template_key = None
-selected_doc_category = st.selectbox(
-    "Choose Document Category:",
-    ["Petitions", "Discovery", "Demand Letters", "Insurance", "Medical"]
-)
 
-if selected_doc_category == "Petitions":
-    selected_petition_doc = st.selectbox("Select Petition Template:", list(petition_doc_map.keys()))
-    selected_template_key = petition_doc_map[selected_petition_doc]
-elif selected_doc_category == "Discovery":
-    discovery_type = st.radio("Select Discovery Task:", ["Documents to Request", "Answering Opposing Counsel Requests"])
-    if discovery_type == "Documents to Request":
-        selected_discovery_doc = st.selectbox("Select Document to Request:", list(requests_doc_map.keys()))
-        selected_template_key = requests_doc_map[selected_discovery_doc]
-    else:
-        selected_discovery_doc = st.selectbox("Select Document to Answer:", list(answers_doc_map.keys()))
-        selected_template_key = answers_doc_map[selected_discovery_doc]
-elif selected_doc_category == "Demand Letters":
-    selected_demand_doc = st.selectbox("Select Demand Letter Type:", list(demand_letters.keys()))
-    selected_template_key = demand_letters[selected_demand_doc]
-elif selected_doc_category == "Insurance":
-    selected_insurance_doc = st.selectbox("Select Insurance Document:", list(insurance_docs.keys()))
-    selected_template_key = insurance_docs[selected_insurance_doc]
-elif selected_doc_category == "Medical":
-    selected_medical_doc = st.selectbox("Select Medical Document:", list(medical_docs.keys()))
-    selected_template_key = medical_docs[selected_medical_doc]
 
 # --- Load Template & Generate Final Document ---
 if selected_template_key:
@@ -284,6 +305,7 @@ if selected_template_key:
             file_name=f"{selected_template_key}_final.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
+
 
 
 
