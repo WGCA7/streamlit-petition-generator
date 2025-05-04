@@ -120,25 +120,29 @@ if st.button("🔍 Search Clients"):
         except Exception as e:
             st.error(f"❌ Could not contact Zapier: {e}")
 
-# --- Load Data from webhook JSON (if exists) ---
-st.subheader("🔄 Reload Webhook Data")
-if st.button("Refresh Webhook Data"):
-    st.experimental_rerun()
-
+# --- Pull Webhook Data from FastAPI ---
+st.subheader("🔄 Refresh Webhook Data")
 webhook_data = {}
-data_path = "latest_webhook_data.json"
-if os.path.exists(data_path):
-    with open(data_path, "r") as f:
-        try:
-            webhook_data = json.load(f)
-            st.success("✅ Auto-fill data loaded from webhook.")
-        except json.JSONDecodeError:
-            st.warning("⚠️ Could not decode JSON from webhook file.")
 
-st.session_state["webhook_data"] = webhook_data
+if st.button("🔄 Refresh Webhook Data"):
+    try:
+        response = requests.get("https://streamlit-webhook-backend.onrender.com/latest")
+        if response.status_code == 200:
+            webhook_data = response.json()
+            if "error" not in webhook_data:
+                st.session_state["webhook_data"] = webhook_data
+                st.success("✅ Webhook data refreshed.")
+            else:
+                st.warning("⚠️ No webhook data available yet.")
+        else:
+            st.error(f"❌ Failed to load data. Status code: {response.status_code}")
+    except Exception as e:
+        st.error(f"❌ Could not contact webhook: {e}")
 
-def get_prefill_value(key, default=""):
-    return st.session_state["webhook_data"].get(key, default)
+# Ensure session state key exists
+if "webhook_data" not in st.session_state:
+    st.session_state["webhook_data"] = {}
+
 
 # --- GPT Section Generator ---
 GPT_SECTION_PROMPTS = {
