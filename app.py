@@ -90,15 +90,11 @@ elif selected_doc_category == "Medical":
 st.subheader("🔎 Search for Client by Name")
 zapier_url = "https://hooks.zapier.com/hooks/catch/22771743/2nyirui/"
 
-case_id    = st.text_input("Enter Case ID (optional)")
+case_id = st.text_input("Enter Case ID (optional)")
 first_name = st.text_input("Client First Name")
-last_name  = st.text_input("Client Last Name")
+last_name = st.text_input("Client Last Name")
 
-case_id    = st.text_input("Enter Case ID (optional)")
-first_name = st.text_input("Client First Name")
-last_name  = st.text_input("Client Last Name")
-
-import time   # make sure this import is only once
+import time  # only once, at top of file if not already
 
 # ────────── New Test Button & Search Logic ──────────
 
@@ -118,7 +114,7 @@ if st.button("⚙️ Test full payload"):
 st.divider()
 
 if st.button("🔍 Search Clients"):
-    # Build payload from any non-empty field
+    # Build payload from any non-empty fields
     payload = {}
     if case_id:    payload["case_id"]    = case_id
     if first_name: payload["first_name"] = first_name
@@ -152,7 +148,7 @@ if st.button("🔍 Search Clients"):
                 break
             time.sleep(1)
 
-    # Show results
+    # Display results
     if not clients:
         st.warning("⚠️ No matching clients found in webhook_data.json")
         st.info("Check Zapier’s Task History or try again.")
