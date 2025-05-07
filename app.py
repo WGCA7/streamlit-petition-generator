@@ -90,9 +90,23 @@ elif selected_doc_category == "Medical":
 st.subheader("🔎 Search for Client by Name")
 zapier_url = "https://hooks.zapier.com/hooks/catch/22771743/2nyirui/"
 
-case_id = st.text_input("Enter Case ID (optional)")
+case_id    = st.text_input("Enter Case ID (optional)")
 first_name = st.text_input("Client First Name")
-last_name = st.text_input("Client Last Name")
+last_name  = st.text_input("Client Last Name")
+
+# 🌟 Quick sanity‐check to Zapier
+if st.button("⚙️ Test direct to Zapier"):
+    test_payload = {
+        "case_id":    case_id or "TEST_CASE",
+        "first_name": first_name or "TestFirst",
+        "last_name":  last_name or "TestLast"
+    }
+    try:
+        r = requests.post(zapier_url, json=test_payload, timeout=5)
+        st.write("→ HTTP Status:", r.status_code)
+        st.write("→ Response Text:", r.text)
+    except Exception as e:
+        st.error(f"Error calling Zapier: {e}")
 
 import time
 
