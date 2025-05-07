@@ -94,73 +94,57 @@ case_id = st.text_input("Enter Case ID (optional)")
 first_name = st.text_input("Client First Name")
 last_name = st.text_input("Client Last Name")
 
+import time
+
 if st.button("🔍 Search Clients"):
-    if case_id:
-        try:
-            response = requests.post(zapier_url, json={"case_id": case_id})
-            if response.status_code == 200:
-                st.success("✅ Case ID sent to Zapier successfully. Awaiting CasePeer data...")
-            else:
-                st.error(f"❌ Failed to send case ID. Status code: {response.status_code}")
-        except Exception as e:
-            st.error(f"❌ Could not reach Zapier: {e}")
-    elif not first_name or not last_name:
-        st.warning("Please enter both first and last name or a Case ID.")
-    else:
-        search_payload = {"first_name": first_name, "last_name": last_name}
-        try:
-            st.write("🔄 Sending name-based search to Zapier...")
-            response = requests.post(zapier_url, json=search_payload)
-            st.write("🔁 Status Code:", response.status_code)
-            st.write("🔁 Response Body:", response.text)
-            results = []
+    # 1) Send to Zapier catch hook
+    search_payload = (
+        {"case_id": case_id}
+        if case_id
+        else {"first_name": first_name, "last_name": last_name}
+    )
+    try:
+        resp = requests.post(zapier_url, json=search_payload, timeout=5)
+        resp.raise_for_status()
+        st.success("✅ Search sent to Zapier; waiting for results…")
+    except Exception as e:
+        st.error(f"❌ Could not reach Zapier: {e}")
+        st.stop()
 
-            if response.status_code == 200:
+    # 2) Wait for webhook file to be updated
+    clients = []
+    wait_seconds = 5
+    with st.spinner(f"Waiting up to {wait_seconds}s for webhook data..."):
+        for _ in range(wait_seconds):
+            if os.path.exists(data_path):
                 try:
-                    json_data = response.json()
-                    st.write("🧪 Full JSON:", json_data)
-                    results = json_data.get("clients", [])
+                    with open(data_path, "r") as f:
+                        webhook = json.load(f)
+                    clients = webhook.get("clients", [])
+                except Exception:
+                    clients = []
+            if clients:
+                break
+            time.sleep(1)
 
-                    # fallback: attempt to load from file if nothing returned
-                    if not results and os.path.exists(data_path):
-                        with open(data_path, "r") as f:
-                            try:
-                                loaded_data = json.load(f)
-                                results = loaded_data.get("clients", [])
-                            except Exception as e:
-                                st.warning(f"⚠️ Could not load saved client data: {e}")
-
-
-                    if not results and json_data.get("status") == "success":
-                        st.warning("No data returned from Zapier directly — attempting to load from file...")
-                        if os.path.exists(data_path):
-                            with open(data_path, "r") as f:
-                                loaded_data = json.load(f)
-                                results = loaded_data.get("clients", [])
-
+    # 3) Report back
+    if not clients:
+        st.warning("⚠️ No matching clients found in webhook_data.json")
+        st.info("Try searching again, or check your Zapier Task History to confirm Zap ran.")
+    else:
+        st.success(f"✅ Retrieved {len(clients)} client record(s).")
+        for idx, client in enumerate(clients):
+            st.markdown(f"**{client.get('client_name','Unnamed')}**")
+            st.markdown(f"- Accident Type: {client.get('accident_type','—')}")
+            st.markdown(f"- Accident Date: {client.get('accident_date','—')}")
+            if st.button("Select This Client", key=f"sel_{idx}"):
+                # send the case_id back through Zapier
+                try:
+                    sel_resp = requests.post(zapier_url, json={"case_id": client["case_id"]})
+                    sel_resp.raise_for_status()
+                    st.success(f"✅ Case ID {client['case_id']} re-sent to Zapier.")
                 except Exception as e:
-                    st.error(f"❌ Failed to parse JSON: {e}")
-                    results = []
-
-            if results:
-                for idx, client in enumerate(results):
-                    st.markdown(f"**{client.get('client_name', 'Unnamed')}**")
-                    st.markdown(f"- Accident Type: {client['accident_type']}")
-                    st.markdown(f"- Accident Date: {client['accident_date']}")
-                    if st.button(f"Select This Client", key=f"select_{idx}"):
-                        selected_case_id = client["case_id"]
-                        try:
-                            response = requests.post(zapier_url, json={"case_id": selected_case_id})
-                            if response.status_code == 200:
-                                st.success(f"✅ Client selected. Case ID {selected_case_id} sent to Zapier.")
-                            else:
-                                st.error("❌ Failed to send case ID to Zapier.")
-                        except Exception as e:
-                            st.error(f"❌ Error sending client selection: {e}")
-            else:
-                st.info("No matching clients found.")
-        except Exception as e:
-            st.error(f"❌ Could not contact Zapier for client search: {e}")
+                    st.error(f"❌ Failed to send case ID: {e}")
 
 # --- Load Data from webhook JSON (if exists) ---
 webhook_data = {}
